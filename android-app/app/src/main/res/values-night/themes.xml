@@ -1,0 +1,12 @@
+<resources>
+    <style name="Base.Theme.FleebeeManagement" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/fleetAccent</item>
+        <item name="colorOnPrimary">@color/fleetPrimaryDark</item>
+        <item name="colorSecondary">@color/fleetAccent</item>
+        <item name="colorOnSecondary">@color/fleetPrimaryDark</item>
+        <item name="colorSurface">@color/fleetPrimaryDark</item>
+        <item name="colorOnSurface">@color/fleetPanel</item>
+        <item name="android:statusBarColor">@color/fleetPrimaryDark</item>
+        <item name="android:navigationBarColor">@color/fleetPrimaryDark</item>
+    </style>
+</resources>

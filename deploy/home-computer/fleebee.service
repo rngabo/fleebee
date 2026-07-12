@@ -1,0 +1,17 @@
+[Unit]
+Description=Fleebee home computer web app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/fleebee/current/fllee-backend
+EnvironmentFile=%h/fleebee/shared/.env
+Environment=PATH=%h/fleebee/runtime/node/bin:/usr/local/bin:/usr/bin:/bin
+ExecStartPre=%h/fleebee/runtime/node/bin/npm run prisma:migrate
+ExecStart=%h/fleebee/runtime/node/bin/node server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

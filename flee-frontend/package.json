@@ -1,0 +1,10 @@
+{
+  "name": "flee-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fleebee browser dashboard.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  }
+}

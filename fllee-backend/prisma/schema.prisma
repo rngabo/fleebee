@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Biker {
+  id          String    @id
+  name        String
+  phoneNumber String
+  bikePlate   String
+  bikeModel   String
+  status      String
+  reminderDue Boolean   @default(false)
+  urgentAlert Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  messages    Message[]
+  schedules   ScheduledMessage[]
+
+  @@index([createdAt])
+}
+
+model Message {
+  id                     String          @id
+  bikerId                String
+  bikerName              String
+  source                 MessageSource   @default(manual)
+  scheduledMessageId     String?
+  category               MessageCategory
+  body                   String
+  normalizedBody         String
+  status                 MessageStatus   @default(pending)
+  availableAt            DateTime?
+  createdAt              DateTime        @default(now())
+  claimedAt              DateTime?
+  claimedBy              String?
+  resultAt               DateTime?
+  resultNote             String?
+  failureReason          String?
+  route                  String
+  targetNumber           String
+  targetNumberNormalized String
+  biker                  Biker           @relation(fields: [bikerId], references: [id], onDelete: Restrict)
+  scheduledMessage       ScheduledMessage? @relation(fields: [scheduledMessageId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([status, availableAt, createdAt])
+  @@index([targetNumberNormalized, normalizedBody, createdAt])
+  @@index([scheduledMessageId, createdAt])
+}
+
+model AppSetting {
+  id        String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PhoneState {
+  id              String   @id
+  mode            String
+  targetNumber    String
+  fixedLocation   String
+  batteryPolicy   String
+  network         String
+  deviceId        String
+  bundleUssdCode  String   @default("*131#")
+  bundleStatus    String   @default("unknown")
+  bundleSummary   String?
+  bundleDetails   String?
+  bundleLastError String?
+  bundleCheckedAt DateTime?
+  bundleRequestedAt DateTime?
+  lastHeartbeatAt DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ScheduledMessage {
+  id                 String                  @id
+  bikerId            String
+  bikerName          String
+  category           MessageCategory
+  body               String
+  normalizedBody     String
+  recurrence         ScheduleRecurrence
+  status             ScheduledMessageStatus @default(active)
+  sendAt             DateTime
+  nextRunAt          DateTime?
+  timeOfDay          String
+  dayOfWeek          Int?
+  dayOfMonth         Int?
+  lastRunAt          DateTime?
+  lastQueuedMessageId String?
+  lastDispatchStatus String?
+  lastDispatchNote   String?
+  completedAt        DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  biker              Biker                   @relation(fields: [bikerId], references: [id], onDelete: Restrict)
+  messages           Message[]
+
+  @@index([status, nextRunAt])
+  @@index([createdAt])
+}
+
+enum MessageCategory {
+  REMINDER
+  GENERAL
+  EMERGENCY
+}
+
+enum MessageStatus {
+  pending
+  queued
+  dispatched
+  submitted
+  sent
+  failed
+}
+
+enum MessageSource {
+  manual
+  scheduled
+}
+
+enum ScheduleRecurrence {
+  ONCE
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ScheduledMessageStatus {
+  active
+  paused
+  completed
+}

@@ -1,0 +1,8 @@
+**/node_modules
+**/npm-debug.log
+**/.env
+**/fleebee.db
+**/app/build
+**/.gradle
+android-app/.idea
+android-app/local.properties

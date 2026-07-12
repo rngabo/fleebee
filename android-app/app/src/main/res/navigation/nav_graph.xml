@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/dashboardFragment">
+
+    <fragment
+        android:id="@+id/dashboardFragment"
+        android:name="com.salvi.fleebeemanagement.ui.dashboard.DashboardFragment"
+        android:label="@string/title_dashboard"
+        tools:layout="@layout/fragment_dashboard">
+
+        <action
+            android:id="@+id/action_dashboardFragment_to_bikerDetailFragment"
+            app:destination="@id/bikerDetailFragment" />
+
+        <action
+            android:id="@+id/action_dashboardFragment_to_composeMessageFragment"
+            app:destination="@id/composeMessageFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/bikerDetailFragment"
+        android:name="com.salvi.fleebeemanagement.ui.detail.BikerDetailFragment"
+        android:label="@string/title_biker_detail"
+        tools:layout="@layout/fragment_biker_detail">
+
+        <argument
+            android:name="bikerId"
+            app:argType="string" />
+
+        <action
+            android:id="@+id/action_bikerDetailFragment_to_composeMessageFragment"
+            app:destination="@id/composeMessageFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/composeMessageFragment"
+        android:name="com.salvi.fleebeemanagement.ui.compose.ComposeMessageFragment"
+        android:label="@string/title_compose_message"
+        tools:layout="@layout/fragment_compose_message">
+
+        <argument
+            android:name="bikerId"
+            app:argType="string" />
+
+        <argument
+            android:name="category"
+            android:defaultValue="REMINDER"
+            app:argType="string" />
+    </fragment>
+</navigation>

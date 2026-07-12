@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fleebee Dispatch Desk</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1626'/%3E%3Cpath d='M19 5L9.5 14.5M19 5l-5.5 14-2-6.5L5 10.5z' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+</head>
+<body data-view="home">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <strong id="appNameLabel">Fleebee Dispatch Desk</strong>
+          <span>SMS Dispatch Console</span>
+        </span>
+      </div>
+
+      <nav class="side-nav" aria-label="Primary">
+        <a class="side-link active" href="/">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+            <rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/>
+            <rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/>
+            <rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/>
+            <rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>
+          </svg>
+          Home
+        </a>
+        <a class="side-link" href="/sms/index.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12a8 8 0 0 1-8 8H4l1.5-3.4A8 8 0 1 1 21 12z"/>
+          </svg>
+          SMS
+        </a>
+        <a class="side-link" href="/settings/index.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16"/>
+            <circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/>
+            <circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/>
+            <circle cx="8" cy="17" r="2" fill="currentColor" stroke="none"/>
+          </svg>
+          Settings
+        </a>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="side-fact">
+          <span>SMS route</span>
+          <strong id="testRouteLabel">Loading...</strong>
+        </div>
+        <div class="side-fact">
+          <span>API endpoint</span>
+          <strong id="apiBaseLabel">Loading...</strong>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="main-header">
+        <div>
+          <h1>Home</h1>
+          <p class="header-sub">System health and the latest SMS activity at a glance.</p>
+        </div>
+        <div class="header-actions">
+          <span id="phoneBadge" class="badge badge-warn">Checking phone</span>
+          <button id="bundleAlertButton" class="danger-button hidden" type="button">Check phone bundles</button>
+          <button id="refreshButton" class="ghost-button" type="button">Refresh</button>
+          <button id="newSmsButton" class="danger-button" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+              <path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/>
+            </svg>
+            New SMS
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <p id="pageNotice" class="notice page-notice"></p>
+
+        <div class="home-grid">
+          <div class="stack-col">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Server Health</h2>
+                  <p class="mini-note">The Fleebee backend on the home computer.</p>
+                </div>
+              </div>
+              <dl class="status-list">
+                <div>
+                  <dt>Status</dt>
+                  <dd id="serverStatusValue">-</dd>
+                </div>
+                <div>
+                  <dt>Service</dt>
+                  <dd id="serverServiceValue">-</dd>
+                </div>
+                <div>
+                  <dt>Storage</dt>
+                  <dd id="serverStorageValue">-</dd>
+                </div>
+                <div>
+                  <dt>Last checked</dt>
+                  <dd id="serverUpdatedValue">-</dd>
+                </div>
+                <div>
+                  <dt>Bundle auto-check</dt>
+                  <dd id="serverBundlePolicyValue">-</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Phone Gateway</h2>
+                  <p class="mini-note">The Android phone that sends the SMS.</p>
+                </div>
+              </div>
+              <dl class="status-list">
+                <div>
+                  <dt>Connection</dt>
+                  <dd id="phoneOnlineValue">-</dd>
+                </div>
+                <div>
+                  <dt>Location</dt>
+                  <dd id="phoneLocationValue">-</dd>
+                </div>
+                <div>
+                  <dt>Network</dt>
+                  <dd id="phoneNetworkValue">-</dd>
+                </div>
+                <div>
+                  <dt>Last heartbeat</dt>
+                  <dd id="phoneHeartbeatValue">-</dd>
+                </div>
+                <div>
+                  <dt>Battery policy</dt>
+                  <dd id="phoneBatteryValue">-</dd>
+                </div>
+                <div>
+                  <dt>SMS route</dt>
+                  <dd id="phoneRouteValue">-</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Bundle Check</h2>
+                  <p class="mini-note">The phone runs <code>*131#</code> automatically and stores the latest USSD reply here.</p>
+                </div>
+              </div>
+              <dl class="status-list">
+                <div>
+                  <dt>Status</dt>
+                  <dd id="bundleStatusValue">-</dd>
+                </div>
+                <div>
+                  <dt>Last checked</dt>
+                  <dd id="bundleCheckedValue">-</dd>
+                </div>
+                <div>
+                  <dt>SMS bundle</dt>
+                  <dd id="bundleSmsValue">-</dd>
+                </div>
+                <div>
+                  <dt>Data bundle</dt>
+                  <dd id="bundleDataValue">-</dd>
+                </div>
+                <div id="bundleDetailsActionRow">
+                  <dt>More details</dt>
+                  <dd class="bundle-detail-actions">
+                    <button id="bundleDetailsToggle" class="ghost-button compact-button" type="button">View full message</button>
+                  </dd>
+                </div>
+                <div id="bundleDetailsRow" class="hidden">
+                  <dt>Full USSD</dt>
+                  <dd id="bundleDetailsValue" class="status-pre">-</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Recent SMS</h2>
+                <p class="mini-note">Message text is hidden for privacy — use the eye to peek (it re-hides after 5 seconds).</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table recent-table">
+                <thead>
+                  <tr>
+                    <th>Biker</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Message</th>
+                    <th>Sent</th>
+                    <th aria-label="Reveal"></th>
+                  </tr>
+                </thead>
+                <tbody id="recentTableBody"></tbody>
+              </table>
+            </div>
+            <div class="pagination-bar">
+              <label class="page-size">
+                Rows
+                <select id="recentPageSizeSelect">
+                  <option value="5" selected>5</option>
+                  <option value="10">10</option>
+                </select>
+              </label>
+              <div class="page-controls">
+                <button id="recentPrevButton" class="ghost-button" type="button">Previous</button>
+                <span id="recentPageLabel" class="mini-note">Page 1 of 1</span>
+                <button id="recentNextButton" class="ghost-button" type="button">Next</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="composeModal" class="modal-shell hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="compose"></div>
+    <section class="modal-card compose-modal" role="dialog" aria-modal="true" aria-labelledby="composeTitle">
+      <div class="modal-head">
+        <h2 id="composeTitle">New SMS</h2>
+        <button class="ghost-button" type="button" data-close-modal="compose">Cancel</button>
+      </div>
+      <p id="composeNote" class="modal-copy">Send now, or schedule it for later.</p>
+      <form id="composeForm" class="stack">
+        <div class="field" id="composeRecipientsField">
+          <span>Recipients</span>
+          <div class="recipient-box">
+            <label class="recipient-all">
+              <input type="checkbox" id="composeAllBikers">
+              <strong>All bikers</strong>
+              <span id="composeRecipientCount" class="mini-note">0 selected</span>
+            </label>
+            <div id="composeRecipientList" class="recipient-list"></div>
+          </div>
+        </div>
+
+        <label class="field hidden" id="composeBikerField">
+          <span>Biker</span>
+          <select id="composeBiker"></select>
+        </label>
+
+        <div class="field">
+          <span>Message type</span>
+          <div class="category-row" id="composeCategoryRow">
+            <button type="button" data-category="REMINDER" class="category-pill active">Reminder</button>
+            <button type="button" data-category="GENERAL" class="category-pill">General</button>
+            <button type="button" data-category="EMERGENCY" class="category-pill">Emergency</button>
+          </div>
+        </div>
+
+        <label class="field">
+          <span>Message</span>
+          <textarea id="composeMessage" rows="4" placeholder="Write the SMS here"></textarea>
+        </label>
+
+        <div class="field" id="composeWhenField">
+          <span>When</span>
+          <div class="category-row" id="composeWhenRow">
+            <button type="button" data-when="now" class="category-pill active">Send now</button>
+            <button type="button" data-when="later" class="category-pill">Schedule</button>
+          </div>
+        </div>
+
+        <div id="composeScheduleRow" class="field-row hidden">
+          <label class="field">
+            <span>Send at</span>
+            <input id="composeSendAt" type="datetime-local">
+          </label>
+          <label class="field">
+            <span>Repeat</span>
+            <select id="composeRepeat">
+              <option value="ONCE">Once</option>
+              <option value="DAILY">Daily</option>
+              <option value="WEEKLY">Weekly</option>
+              <option value="MONTHLY">Monthly</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="composePasswordRow" class="field">
+          <span>Dispatch password</span>
+          <input id="composePassword" type="password" placeholder="Required to send" autocomplete="current-password">
+        </div>
+        <p id="composePasswordHint" class="mini-note hidden"></p>
+
+        <p id="composeNotice" class="notice"></p>
+        <div class="action-row">
+          <button id="composeSubmit" type="submit" class="primary-button">Send SMS</button>
+          <button type="button" class="ghost-button" data-close-modal="compose">Cancel</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <script src="/app-config.js"></script>
+  <script src="/assets/js/app.js"></script>
+</body>
+</html>

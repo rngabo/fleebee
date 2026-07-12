@@ -1,0 +1,6 @@
+node_modules/
+.env
+fleebee.db
+fleebee.db-journal
+fleebee.db-shm
+fleebee.db-wal

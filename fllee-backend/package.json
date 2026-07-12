@@ -1,0 +1,21 @@
+{
+  "name": "fllee-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fleebee backend API for the home phone SMS gateway.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:init": "node -e \"require('./scripts/ensure-database').ensureDatabaseFile()\"",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "node scripts/ensure-database.js",
+    "prisma:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "better-sqlite3": "^12.11.1",
+    "dotenv": "^17.4.2",
+    "prisma": "^7.8.0"
+  }
+}

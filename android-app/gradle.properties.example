@@ -1,0 +1,16 @@
+# Use Gradle properties or environment variables so the phone can target
+# either local USB testing or the real public Fleebee server.
+#
+# Example stable home LAN testing:
+# gatewayBackendBaseUrl=http://192.168.1.50:4100
+#
+# Example real deployment:
+# gatewayBackendBaseUrl=https://app.example.com
+#
+# Example local USB testing:
+# gatewayBackendBaseUrl=http://127.0.0.1:4100
+
+gatewayBackendBaseUrl=http://192.168.1.50:4100
+gatewayDeviceId=android-home-gateway
+gatewayFixedLocation=Home gateway
+gatewayNetworkLabel=Wi-Fi / mobile fallback

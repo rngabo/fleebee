@@ -1,0 +1,16 @@
+<resources>
+    <color name="white">#FFFFFFFF</color>
+    <color name="fleetBackground">#F5EFE5</color>
+    <color name="fleetPanel">#FFF9F2</color>
+    <color name="fleetPrimary">#14363A</color>
+    <color name="fleetPrimaryDark">#0F272A</color>
+    <color name="fleetAccent">#C9712A</color>
+    <color name="fleetAccentSoft">#F4DFC7</color>
+    <color name="fleetAlert">#A54532</color>
+    <color name="fleetAlertSoft">#F5D7D1</color>
+    <color name="fleetSuccess">#2D6A4F</color>
+    <color name="fleetSuccessSoft">#D9E9DF</color>
+    <color name="fleetInk">#1E201D</color>
+    <color name="fleetMutedText">#6A665E</color>
+    <color name="fleetDivider">#DDD2C3</color>
+</resources>
