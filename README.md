@@ -18,6 +18,7 @@ As of `2026-07-05`, these paths are confirmed:
 - LAN SSH: `ssh richard@192.168.1.50`
 - Public SSH: `ssh -p 2222 richard@196.12.139.27`
 - LAN app URL: `http://192.168.1.50:4100`
+- Configured public hostname: `https://fleebee.esonga.online`
 
 Important note:
 
@@ -34,16 +35,26 @@ Most important keys:
 
 - `PORT=4100`
   Fleebee app port. The dashboard and API are both served on this same port.
-- `PUBLIC_APP_URL=http://192.168.1.50:4100`
-  Human-facing local app URL.
+- `PUBLIC_APP_URL=https://fleebee.esonga.online`
+  Human-facing public app URL once HTTPS reverse proxying is in place.
 - `DASHBOARD_API_BASE_URL=`
   Leave blank for same-origin dashboard requests.
 - `DATABASE_URL=file:/home/richard/fleebee/shared/fleebee.db`
   SQLite database path for the home-computer deployment.
 - `SMS_SEND_PASSWORD=1234`
-  Password required before a remote SMS can be queued.
+  Initial SMS send password used to seed the database if no DB-backed password exists yet.
+- `SMS_ADMIN_PASSWORD=1234`
+  Admin-only password for changing the SMS send password and signature from the SMS page.
+- `APP_LOGIN_PASSWORD=1234`
+  Browser login password for opening the dashboard.
+- `APP_SESSION_SECRET=change-this-before-public-https`
+  Cookie-signing secret for the dashboard login session.
+- `APP_SESSION_IDLE_TIMEOUT_MS=900000`
+  Session idle timeout in milliseconds before the login expires.
+- `SMS_GATEWAY_MODE=registered-bikers`
+  `registered-bikers` sends to each active biker's stored phone number.
 - `SMS_GATEWAY_TARGET_NUMBER=0788690545`
-  Current default test-routing recipient number.
+  Used only when `SMS_GATEWAY_MODE=test-routing`.
 - `SMS_GATEWAY_DEVICE_ID=android-home-gateway`
   Device identity used by the Android gateway heartbeat and job claim flow.
 

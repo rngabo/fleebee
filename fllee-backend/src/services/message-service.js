@@ -3,7 +3,11 @@ const { randomUUID } = require("node:crypto");
 const { env } = require("../config/env");
 const { prisma } = require("../lib/prisma");
 const { getPhoneState, routeLabel } = require("./phone-service");
-const { hasValidStoredDispatchPassword } = require("./setting-service");
+const {
+  getDispatchPassword,
+  getMessageSignature,
+  isDispatchPasswordValid
+} = require("./setting-service");
 
 const EDITABLE_MESSAGE_STATUSES = new Set(["pending"]);
 const DUPLICATE_MESSAGE_STATUSES = ["pending", "queued", "dispatched", "submitted", "sent"];
@@ -25,12 +29,18 @@ function normalizePhoneNumber(value) {
   return String(value || "").replace(/\D+/g, "");
 }
 
-function isDispatchPasswordValid(value) {
-  return String(value || "").trim() === env.SMS_SEND_PASSWORD;
-}
-
 function normalizeMessageSource(value) {
   return String(value || "").trim().toLowerCase() === "scheduled" ? "scheduled" : "manual";
+}
+
+function isTestRoutingMode(phone) {
+  return String(phone?.mode || env.SMS_GATEWAY_MODE).trim().toLowerCase() === "test-routing";
+}
+
+function buildDeliveryBody(body, signature) {
+  const messageBody = String(body || "").trim();
+  const messageSignature = String(signature || "").trim();
+  return messageSignature ? `${messageBody}\n\n${messageSignature}` : messageBody;
 }
 
 function buildPendingReleaseAt(from = new Date()) {
@@ -94,7 +104,8 @@ function serializeMessage(message) {
     source: message.source,
     scheduledMessageId: message.scheduledMessageId || "",
     category: message.category,
-    body: message.body,
+    body: message.deliveryBody || message.body,
+    editorBody: message.body,
     status: message.status,
     availableAt: message.availableAt ? message.availableAt.toISOString() : null,
     createdAt: message.createdAt.toISOString(),
@@ -169,6 +180,15 @@ async function buildMessageWriteData(payload, { excludeMessageId = null } = {}) 
     };
   }
 
+  if (String(biker.status || "").trim().toLowerCase() !== "active") {
+    return {
+      statusCode: 400,
+      body: {
+        error: "Only active bikers can receive SMS. Mark this biker active first."
+      }
+    };
+  }
+
   const body = String(payload.body || "").trim();
   if (!body) {
     return {
@@ -180,8 +200,24 @@ async function buildMessageWriteData(payload, { excludeMessageId = null } = {}) 
   }
 
   const phone = await getPhoneState();
-  const normalizedBody = normalizeMessageBody(body);
-  const targetNumberNormalized = normalizePhoneNumber(phone.targetNumber);
+  const signature = await getMessageSignature();
+  const deliveryBody = buildDeliveryBody(body, signature);
+  const normalizedBody = normalizeMessageBody(deliveryBody);
+  const targetNumber = isTestRoutingMode(phone)
+    ? String(phone.targetNumber || "").trim()
+    : String(biker.phoneNumber || "").trim();
+  const targetNumberNormalized = normalizePhoneNumber(targetNumber);
+  if (!targetNumberNormalized) {
+    return {
+      statusCode: 400,
+      body: {
+        error: isTestRoutingMode(phone)
+          ? "Test routing is enabled, but no test target number is configured."
+          : "The selected biker does not have a valid phone number."
+      }
+    };
+  }
+
   const duplicate = await findRecentDuplicate(
     biker.id,
     normalizedBody,
@@ -205,9 +241,11 @@ async function buildMessageWriteData(payload, { excludeMessageId = null } = {}) 
     body: {
       biker,
       body,
+      deliveryBody,
       category: normalizeCategory(payload.category),
       normalizedBody,
-      phone,
+      route: routeLabel(phone, targetNumber),
+      targetNumber,
       targetNumberNormalized
     }
   };
@@ -215,18 +253,28 @@ async function buildMessageWriteData(payload, { excludeMessageId = null } = {}) 
 
 async function queueMessageForDispatch(payload, { requirePassword = false } = {}) {
   if (requirePassword) {
+    const configuredPassword = await getDispatchPassword();
+    if (!configuredPassword) {
+      return {
+        statusCode: 401,
+        body: {
+          error: "SMS send password is not configured on the SMS page yet."
+        }
+      };
+    }
+
     const provided = String(payload.password || "").trim();
     const authorized = provided
-      ? isDispatchPasswordValid(provided)
-      : await hasValidStoredDispatchPassword();
+      ? await isDispatchPasswordValid(provided)
+      : false;
 
     if (!authorized) {
       return {
         statusCode: 401,
         body: {
           error: provided
-            ? "Dispatch password is incorrect."
-            : "No dispatch password. Enter it, or save it once on the SMS page."
+            ? "SMS send password is incorrect."
+            : "Enter the SMS send password to continue."
         }
       };
     }
@@ -237,7 +285,16 @@ async function queueMessageForDispatch(payload, { requirePassword = false } = {}
     return record;
   }
 
-  const { biker, body, category, normalizedBody, phone, targetNumberNormalized } = record.body;
+  const {
+    biker,
+    body,
+    deliveryBody,
+    category,
+    normalizedBody,
+    route,
+    targetNumber,
+    targetNumberNormalized
+  } = record.body;
   const availableAt = buildPendingReleaseAt();
 
   const message = await prisma.message.create({
@@ -249,11 +306,12 @@ async function queueMessageForDispatch(payload, { requirePassword = false } = {}
       scheduledMessageId: payload.scheduledMessageId ? String(payload.scheduledMessageId).trim() : null,
       category,
       body,
+      deliveryBody,
       normalizedBody,
       status: "pending",
       availableAt,
-      route: routeLabel(phone),
-      targetNumber: phone.targetNumber,
+      route,
+      targetNumber,
       targetNumberNormalized
     }
   });
@@ -317,7 +375,16 @@ async function updatePendingMessage(id, payload) {
     return record;
   }
 
-  const { biker, body, category, normalizedBody, phone, targetNumberNormalized } = record.body;
+  const {
+    biker,
+    body,
+    deliveryBody,
+    category,
+    normalizedBody,
+    route,
+    targetNumber,
+    targetNumberNormalized
+  } = record.body;
   const availableAt = buildPendingReleaseAt();
 
   const message = await prisma.message.update({
@@ -329,6 +396,7 @@ async function updatePendingMessage(id, payload) {
       bikerName: biker.name,
       category,
       body,
+      deliveryBody,
       normalizedBody,
       status: "pending",
       availableAt,
@@ -337,8 +405,8 @@ async function updatePendingMessage(id, payload) {
       resultAt: null,
       resultNote: null,
       failureReason: null,
-      route: routeLabel(phone),
-      targetNumber: phone.targetNumber,
+      route,
+      targetNumber,
       targetNumberNormalized
     }
   });

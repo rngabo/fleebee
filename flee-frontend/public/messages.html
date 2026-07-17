@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fleebee Settings</title>
+  <title>Fleebee Message History</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1626'/%3E%3Cpath d='M19 5L9.5 14.5M19 5l-5.5 14-2-6.5L5 10.5z' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/assets/css/styles.css">
 </head>
-<body data-view="recipients">
+<body data-view="message-history">
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
@@ -117,8 +117,8 @@
     <div class="main">
       <header class="main-header">
         <div>
-          <h1>Recipients</h1>
-          <p class="header-sub">Manage the rider records that can be activated or paused for SMS delivery.</p>
+          <h1>Message History</h1>
+          <p class="header-sub">Inspect every queued, delivered, and failed SMS in one focused log.</p>
         </div>
         <div class="header-actions">
           <span id="phoneBadge" class="badge badge-warn">Checking phone</span>
@@ -131,96 +131,32 @@
       <div class="content">
         <p id="pageNotice" class="notice page-notice"></p>
 
-        <section class="panel biker-form-panel anchor-section" id="recipients">
-          <div class="panel-head">
-            <div>
-              <h2 id="bikerPanelTitle">Add Recipient</h2>
-              <p id="bikerPanelNote" class="mini-note">Fill in the rider's details, then save.</p>
-            </div>
-          </div>
-
-          <form id="bikerForm" class="stack">
-            <div class="field-row">
-              <label class="field">
-                <span>Name</span>
-                <input id="nameInput" type="text" placeholder="Biker full name">
-              </label>
-              <label class="field">
-                <span>Phone number</span>
-                <input id="phoneInput" type="text" placeholder="0788...">
-              </label>
-            </div>
-            <div class="schedule-grid">
-              <label class="field">
-                <span>Bike plate</span>
-                <input id="plateInput" type="text" placeholder="RAE 000A">
-              </label>
-              <label class="field">
-                <span>Bike model</span>
-                <input id="modelInput" type="text" placeholder="TVS / Boxer / Bajaj">
-              </label>
-              <label class="field">
-                <span>Status</span>
-                <select id="statusInput">
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-              </label>
-            </div>
-            <div class="toggle-grid toggle-grid-row">
-              <label class="toggle-card" for="reminderDueInput">
-                <input id="reminderDueInput" type="checkbox">
-                <span class="toggle-copy">
-                  <strong>Reminder due</strong>
-                  <small>Marks this biker as owing a reminder.</small>
-                </span>
-              </label>
-              <label class="toggle-card" for="urgentAlertInput">
-                <input id="urgentAlertInput" type="checkbox">
-                <span class="toggle-copy">
-                  <strong>Emergency open</strong>
-                  <small>Flags this biker for urgent follow-up.</small>
-                </span>
-              </label>
-            </div>
-            <div class="action-row">
-              <button id="bikerSubmitButton" type="submit" class="primary-button">Add Recipient</button>
-              <button id="bikerResetButton" type="button" class="ghost-button">Clear Form</button>
-            </div>
-          </form>
-          <p id="bikerNotice" class="notice"></p>
-        </section>
-
         <section class="panel">
           <div class="panel-head">
             <div>
-              <h2>Recipient Directory</h2>
-              <p class="mini-note">Use Details to view a full record, or Modify to select rows for editing and deleting.</p>
-            </div>
-            <button id="bikerModifyButton" class="ghost-button" type="button">Modify</button>
-          </div>
-
-          <div id="bikerBulkBar" class="bulk-bar hidden">
-            <span id="bulkCountLabel" class="mini-note">Select rows to edit or delete</span>
-            <div class="bulk-actions">
-              <button id="bulkEditButton" class="secondary-button" type="button" disabled>Edit Selected</button>
-              <button id="bulkDeleteButton" class="danger-button" type="button" disabled>Delete Selected</button>
+              <h2>Message Log</h2>
+              <p class="mini-note">Pending messages can still be edited or deleted until they leave the review window.</p>
             </div>
           </div>
-
+          <p class="status-legend">
+            <span><span class="status-chip pending">PENDING</span> waiting — still editable</span>
+            <span><span class="status-chip submitted">SUBMITTED</span> handed to carrier</span>
+            <span><span class="status-chip sent">SENT</span> delivered</span>
+            <span><span class="status-chip failed">FAILED</span> needs attention</span>
+          </p>
           <div class="table-wrap">
-            <table id="bikerTable" class="data-table">
+            <table class="data-table">
               <thead>
                 <tr>
-                  <th class="check-cell" aria-label="Select"></th>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>Bike</th>
+                  <th>Biker</th>
+                  <th>Type</th>
+                  <th>Message</th>
                   <th>Status</th>
+                  <th>Created</th>
                   <th>Actions</th>
                 </tr>
               </thead>
-              <tbody id="bikerTableBody"></tbody>
+              <tbody id="smsTableBody"></tbody>
             </table>
           </div>
         </section>
@@ -228,18 +164,81 @@
     </div>
   </div>
 
-  <div id="bikerDetailModal" class="modal-shell hidden" aria-hidden="true">
-    <div class="modal-backdrop" data-close-modal="biker-detail"></div>
-    <section class="modal-card detail-modal" role="dialog" aria-modal="true" aria-labelledby="bikerDetailTitle">
+  <div id="composeModal" class="modal-shell hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="compose"></div>
+    <section class="modal-card compose-modal" role="dialog" aria-modal="true" aria-labelledby="composeTitle">
       <div class="modal-head">
-        <h2 id="bikerDetailTitle">Recipient Details</h2>
-        <button class="ghost-button" type="button" data-close-modal="biker-detail">Close</button>
+        <h2 id="composeTitle">New SMS</h2>
+        <button class="ghost-button" type="button" data-close-modal="compose">Cancel</button>
       </div>
-      <dl id="bikerDetailBody" class="status-list detail-list"></dl>
-      <div class="action-row detail-actions">
-        <button id="bikerDetailEditButton" class="primary-button" type="button">Edit This Recipient</button>
-        <button class="ghost-button" type="button" data-close-modal="biker-detail">Close</button>
-      </div>
+      <p id="composeNote" class="modal-copy">Send now, or schedule it for later.</p>
+      <form id="composeForm" class="stack">
+        <div class="field" id="composeRecipientsField">
+          <span>Recipients</span>
+          <div class="recipient-box">
+            <label class="recipient-all">
+              <input type="checkbox" id="composeAllBikers">
+              <strong>All active bikers</strong>
+              <span id="composeRecipientCount" class="mini-note">0 selected</span>
+            </label>
+            <div id="composeRecipientList" class="recipient-list"></div>
+          </div>
+        </div>
+
+        <label class="field hidden" id="composeBikerField">
+          <span>Biker</span>
+          <select id="composeBiker"></select>
+        </label>
+
+        <div class="field">
+          <span>Message type</span>
+          <div class="category-row" id="composeCategoryRow">
+            <button type="button" data-category="REMINDER" class="category-pill active">Reminder</button>
+            <button type="button" data-category="GENERAL" class="category-pill">General</button>
+            <button type="button" data-category="EMERGENCY" class="category-pill">Emergency</button>
+          </div>
+        </div>
+
+        <label class="field">
+          <span>Message</span>
+          <textarea id="composeMessage" rows="4" placeholder="Write the SMS here"></textarea>
+        </label>
+
+        <div class="field" id="composeWhenField">
+          <span>When</span>
+          <div class="category-row" id="composeWhenRow">
+            <button type="button" data-when="now" class="category-pill active">Send now</button>
+            <button type="button" data-when="later" class="category-pill">Schedule</button>
+          </div>
+        </div>
+
+        <div id="composeScheduleRow" class="field-row hidden">
+          <label class="field">
+            <span>Send at</span>
+            <input id="composeSendAt" type="datetime-local">
+          </label>
+          <label class="field">
+            <span>Repeat</span>
+            <select id="composeRepeat">
+              <option value="ONCE">Once</option>
+              <option value="DAILY">Daily</option>
+              <option value="WEEKLY">Weekly</option>
+              <option value="MONTHLY">Monthly</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="composePasswordRow" class="field">
+          <span>SMS send password</span>
+          <input id="composePassword" type="password" placeholder="Last step before queueing the SMS" autocomplete="current-password">
+        </div>
+
+        <p id="composeNotice" class="notice"></p>
+        <div class="action-row">
+          <button id="composeSubmit" type="submit" class="primary-button">Send SMS</button>
+          <button type="button" class="ghost-button" data-close-modal="compose">Cancel</button>
+        </div>
+      </form>
     </section>
   </div>
 

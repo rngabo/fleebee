@@ -1,6 +1,13 @@
 const { prisma } = require("../lib/prisma");
 const { getPhoneState, isPhoneOnline, serializePhone } = require("./phone-service");
 
+function buildRouteSummary(phone) {
+  const mode = String(phone.mode || "").trim().toLowerCase();
+  return mode === "test-routing"
+    ? phone.targetNumber
+    : "Active registered biker numbers";
+}
+
 async function buildDashboardResponse() {
   const [totalBikers, pendingReminders, emergencyOpen, queuedMessages, phone] = await Promise.all([
     prisma.biker.count(),
@@ -33,7 +40,7 @@ async function buildDashboardResponse() {
       phoneOnline: isPhoneOnline(phone)
     },
     phone: serializePhone(phone),
-    testRoute: phone.targetNumber
+    testRoute: buildRouteSummary(phone)
   };
 }
 

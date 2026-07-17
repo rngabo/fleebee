@@ -12,6 +12,24 @@ function numberFromEnv(name, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function booleanFromEnv(name, fallback) {
+  const value = process.env[name];
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (["true", "1", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+
+  if (["false", "0", "no", "off", ""].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
 function resolveDirectoryCandidates(name, candidates) {
   const checked = [];
 
@@ -60,8 +78,35 @@ const env = {
   PHONE_HEARTBEAT_STALE_MS: numberFromEnv("PHONE_HEARTBEAT_STALE_MS", 20 * 1000),
   DUPLICATE_WINDOW_MS: numberFromEnv("DUPLICATE_WINDOW_MS", 10 * 60 * 1000),
   SMS_SEND_PASSWORD: stringFromEnv("SMS_SEND_PASSWORD", "1234"),
+  SMS_ADMIN_PASSWORD: stringFromEnv(
+    "SMS_ADMIN_PASSWORD",
+    stringFromEnv("SMS_SEND_PASSWORD", "1234")
+  ),
+  APP_LOGIN_PASSWORD: stringFromEnv(
+    "APP_LOGIN_PASSWORD",
+    stringFromEnv(
+      "SMS_ADMIN_PASSWORD",
+      stringFromEnv("SMS_SEND_PASSWORD", "1234")
+    )
+  ),
+  APP_SESSION_SECRET: stringFromEnv(
+    "APP_SESSION_SECRET",
+    stringFromEnv(
+      "APP_LOGIN_PASSWORD",
+      stringFromEnv(
+        "SMS_ADMIN_PASSWORD",
+        stringFromEnv("SMS_SEND_PASSWORD", "1234")
+      )
+    )
+  ),
+  APP_SESSION_IDLE_TIMEOUT_MS: numberFromEnv(
+    "APP_SESSION_IDLE_TIMEOUT_MS",
+    15 * 60 * 1000
+  ),
+  APP_SESSION_COOKIE_NAME: stringFromEnv("APP_SESSION_COOKIE_NAME", "fleebee_session"),
+  APP_SESSION_COOKIE_SECURE: booleanFromEnv("APP_SESSION_COOKIE_SECURE", false),
   PHONE_STATE_ID: stringFromEnv("PHONE_STATE_ID", "android-home-gateway"),
-  SMS_GATEWAY_MODE: stringFromEnv("SMS_GATEWAY_MODE", "test-routing"),
+  SMS_GATEWAY_MODE: stringFromEnv("SMS_GATEWAY_MODE", "registered-bikers"),
   SMS_GATEWAY_TARGET_NUMBER: stringFromEnv("SMS_GATEWAY_TARGET_NUMBER", "0788690545"),
   SMS_GATEWAY_FIXED_LOCATION: stringFromEnv("SMS_GATEWAY_FIXED_LOCATION", "Home gateway"),
   SMS_GATEWAY_BATTERY_POLICY: stringFromEnv(
@@ -73,6 +118,7 @@ const env = {
     "Wi-Fi / mobile fallback"
   ),
   SMS_GATEWAY_DEVICE_ID: stringFromEnv("SMS_GATEWAY_DEVICE_ID", "android-home-gateway"),
+  SEED_DEFAULT_BIKERS: booleanFromEnv("SEED_DEFAULT_BIKERS", false),
   SMS_BUNDLE_USSD_CODE: stringFromEnv("SMS_BUNDLE_USSD_CODE", "*131#"),
   SMS_BUNDLE_REFRESH_INTERVAL_MS: numberFromEnv(
     "SMS_BUNDLE_REFRESH_INTERVAL_MS",

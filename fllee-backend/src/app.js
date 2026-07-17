@@ -4,7 +4,7 @@ const path = require("node:path");
 
 const { buildBrowserConfigScript } = require("./config/browser-config");
 const { env } = require("./config/env");
-const { sendJson, sendText, readJson, withCors } = require("./lib/http");
+const { sendJson, sendRedirect, sendText, readJson, withCors } = require("./lib/http");
 const { getContentType } = require("./server/mime-types");
 const { createBiker, deleteBiker, listBikers, updateBiker } = require("./services/biker-service");
 const { buildDashboardResponse } = require("./services/dashboard-service");
@@ -33,13 +33,24 @@ const {
   updatePhoneHeartbeat
 } = require("./services/phone-service");
 const {
-  clearDispatchPassword,
-  hasValidStoredDispatchPassword,
-  saveDispatchPassword
+  getSmsSettings,
+  saveSmsSettings
 } = require("./services/setting-service");
+const {
+  clearSessionCookie,
+  createSession,
+  destroyBrowserSession,
+  readBrowserSession,
+  setSessionCookie,
+  touchBrowserSession
+} = require("./services/session-service");
 
 function resolveDashboardFilePath(pathname) {
-  const requestedPath = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
+  const requestedPath = pathname === "/"
+    ? "index.html"
+    : pathname === "/login" || pathname === "/login/"
+      ? "login/index.html"
+      : pathname.replace(/^\/+/, "");
   const normalizedPath = path.normalize(requestedPath);
   const resolvedPath = path.join(env.DASHBOARD_PUBLIC_DIR, normalizedPath);
   const safePrefix = `${env.DASHBOARD_PUBLIC_DIR}${path.sep}`;
@@ -79,6 +90,57 @@ function sendBrowserConfig(res) {
   res.end(buildBrowserConfigScript());
 }
 
+function isLoginPagePath(pathname) {
+  return pathname === "/login" || pathname === "/login/" || pathname === "/login/index.html";
+}
+
+function isPublicStaticPath(pathname) {
+  return pathname === "/app-config.js" || pathname.startsWith("/assets/") || isLoginPagePath(pathname);
+}
+
+function isPublicApiPath(pathname) {
+  return pathname === "/api/session/login"
+    || pathname === "/api/session/logout"
+    || pathname === "/api/gateway/jobs/claim"
+    || /^\/api\/gateway\/jobs\/[^/]+\/result$/.test(pathname)
+    || pathname === "/api/phone/heartbeat"
+    || pathname === "/api/phone/bundle/report";
+}
+
+function normalizeRedirectTarget(target) {
+  const value = String(target || "").trim();
+  if (!value.startsWith("/") || value.startsWith("//")) {
+    return "/";
+  }
+
+  return isLoginPagePath(value) ? "/" : value;
+}
+
+function buildLoginLocation(url, reason) {
+  const redirectTarget = normalizeRedirectTarget(`${url.pathname}${url.search || ""}`);
+  const params = new URLSearchParams();
+
+  if (redirectTarget !== "/") {
+    params.set("redirect", redirectTarget);
+  }
+  if (reason) {
+    params.set("reason", reason);
+  }
+
+  const query = params.toString();
+  return query ? `/login/?${query}` : "/login/";
+}
+
+function sendApiAuthError(res, reason) {
+  clearSessionCookie(res);
+  sendJson(res, 401, {
+    error: reason === "expired"
+      ? "Your login session expired. Please sign in again."
+      : "Sign in first to use the Fleebee dashboard.",
+    reason
+  });
+}
+
 function createAppServer() {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
@@ -105,26 +167,77 @@ function createAppServer() {
         return;
       }
 
-      if (url.pathname === "/api/settings/dispatch-password") {
-        if (req.method === "GET") {
-          sendJson(res, 200, {
-            saved: await hasValidStoredDispatchPassword()
+      if (req.method === "POST" && url.pathname === "/api/session/login") {
+        const payload = await readJson(req);
+        const password = String(payload.password || "");
+
+        if (!password || password !== env.APP_LOGIN_PASSWORD) {
+          clearSessionCookie(res);
+          sendJson(res, 401, {
+            error: "Login password is incorrect."
           });
+          return;
+        }
+
+        const { sessionId, session } = createSession();
+        setSessionCookie(res, sessionId);
+        sendJson(res, 200, {
+          authenticated: true,
+          expiresAt: new Date(session.lastActivityAt + env.APP_SESSION_IDLE_TIMEOUT_MS).toISOString(),
+          idleTimeoutMs: env.APP_SESSION_IDLE_TIMEOUT_MS
+        });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/session/logout") {
+        destroyBrowserSession(req, res);
+        sendJson(res, 200, {
+          loggedOut: true
+        });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/session/touch") {
+        const sessionState = touchBrowserSession(req, res);
+        if (!sessionState.authenticated) {
+          sendApiAuthError(res, sessionState.reason);
+          return;
+        }
+
+        sendJson(res, 200, sessionState.body);
+        return;
+      }
+
+      const browserSession = readBrowserSession(req);
+      const needsBrowserAuth = req.method === "GET"
+        ? !isPublicStaticPath(url.pathname)
+        : url.pathname.startsWith("/api/") && !isPublicApiPath(url.pathname);
+
+      if (needsBrowserAuth && !browserSession.authenticated) {
+        if (url.pathname.startsWith("/api/")) {
+          sendApiAuthError(res, browserSession.reason);
+        } else {
+          clearSessionCookie(res);
+          sendRedirect(res, buildLoginLocation(url, browserSession.reason));
+        }
+        return;
+      }
+
+      if (req.method === "GET" && isLoginPagePath(url.pathname) && browserSession.authenticated) {
+        sendRedirect(res, normalizeRedirectTarget(url.searchParams.get("redirect")));
+        return;
+      }
+
+      if (url.pathname === "/api/settings/sms") {
+        if (req.method === "GET") {
+          sendJson(res, 200, await getSmsSettings());
           return;
         }
 
         if (req.method === "PUT") {
           const payload = await readJson(req);
-          const response = await saveDispatchPassword(payload.password);
+          const response = await saveSmsSettings(payload);
           sendJson(res, response.statusCode, response.body);
-          return;
-        }
-
-        if (req.method === "DELETE") {
-          await clearDispatchPassword();
-          sendJson(res, 200, {
-            saved: false
-          });
           return;
         }
       }
@@ -310,7 +423,9 @@ function createAppServer() {
           return;
         }
 
-        const fallbackPath = path.extname(url.pathname) ? null : path.join(env.DASHBOARD_PUBLIC_DIR, "index.html");
+        const fallbackPath = path.extname(url.pathname) || isLoginPagePath(url.pathname)
+          ? null
+          : path.join(env.DASHBOARD_PUBLIC_DIR, "index.html");
         sendFile(res, filePath, fallbackPath);
         return;
       }

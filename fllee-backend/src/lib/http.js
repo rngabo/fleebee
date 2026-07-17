@@ -22,6 +22,14 @@ function sendText(res, statusCode, payload) {
   res.end(payload);
 }
 
+function sendRedirect(res, location, statusCode = 302) {
+  res.writeHead(statusCode, {
+    Location: location,
+    "Cache-Control": "no-store"
+  });
+  res.end();
+}
+
 async function readJson(req) {
   const chunks = [];
   for await (const chunk of req) {
@@ -39,6 +47,7 @@ async function readJson(req) {
 module.exports = {
   withCors,
   sendJson,
+  sendRedirect,
   sendText,
   readJson
 };

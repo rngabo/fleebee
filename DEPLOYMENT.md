@@ -129,7 +129,7 @@ ssh -6 -l richard 2c0f:fe30:4bf9:0:7eb7:5064:c0e4:c654
 For the current local deployment shape, the key values remain:
 
 - `PORT=4100`
-- `PUBLIC_APP_URL=http://192.168.1.50:4100`
+- `PUBLIC_APP_URL=https://fleebee.esonga.online`
 - `DATABASE_URL=file:/home/richard/fleebee/shared/fleebee.db`
 - `SMS_SEND_PASSWORD=1234`
 - `SMS_GATEWAY_TARGET_NUMBER=0788690545`

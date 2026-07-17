@@ -1,11 +1,16 @@
 const { randomUUID } = require("node:crypto");
 
+const { env } = require("../config/env");
 const { DEFAULT_BIKERS } = require("../data/defaults");
 const { prisma } = require("../lib/prisma");
 
 const ALLOWED_BIKER_STATUSES = new Set(["Active", "Inactive"]);
 
 async function seedDefaultBikers() {
+  if (!env.SEED_DEFAULT_BIKERS) {
+    return;
+  }
+
   const bikerCount = await prisma.biker.count();
   if (bikerCount === 0) {
     await prisma.biker.createMany({

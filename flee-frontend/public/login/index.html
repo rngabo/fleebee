@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fleebee Login</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1626'/%3E%3Cpath d='M19 5L9.5 14.5M19 5l-5.5 14-2-6.5L5 10.5z' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+</head>
+<body data-view="login">
+  <main class="login-page">
+    <section class="login-card" aria-labelledby="loginAppName">
+      <div class="login-brand">
+        <span class="login-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/>
+          </svg>
+        </span>
+        <div>
+          <p class="login-kicker">Protected Dashboard</p>
+          <h1 id="loginAppName">Fleebee Dispatch Desk</h1>
+          <p class="header-sub">Sign in before opening the live SMS console.</p>
+        </div>
+      </div>
+
+      <form id="loginForm" class="stack">
+        <label class="field">
+          <span>Login password</span>
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Enter the operator password">
+        </label>
+        <p id="loginIdleCopy" class="mini-note"></p>
+        <p id="loginNotice" class="notice"></p>
+        <div class="action-row">
+          <button id="loginSubmit" type="submit" class="primary-button">Sign In</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="/app-config.js"></script>
+  <script src="/assets/js/login.js"></script>
+</body>
+</html>

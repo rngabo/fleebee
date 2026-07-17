@@ -74,10 +74,13 @@ cp ~/fleebee/current/deploy/home-computer/fleebee.env.example ~/fleebee/shared/.
 Important values in `~/fleebee/shared/.env`:
 
 - `PORT=4100`
-- `PUBLIC_APP_URL=http://192.168.1.50:4100`
+- `PUBLIC_APP_URL=https://fleebee.esonga.online`
+- `CORS_ALLOW_ORIGIN=https://fleebee.esonga.online`
 - `DATABASE_URL=file:/home/richard/fleebee/shared/fleebee.db`
 - `SMS_SEND_PASSWORD=1234`
 - `SMS_GATEWAY_TARGET_NUMBER=0788690545`
+
+The backend still listens on local port `4100`. To make `https://fleebee.esonga.online` work from browsers, add a reverse proxy on the home computer that terminates HTTPS on ports `80/443` and forwards to `127.0.0.1:4100`. A ready Caddy example is in `deploy/home-computer/Caddyfile.example`.
 
 ## Start with user systemd
 

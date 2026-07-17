@@ -31,6 +31,7 @@ model Message {
   scheduledMessageId     String?
   category               MessageCategory
   body                   String
+  deliveryBody           String          @default("")
   normalizedBody         String
   status                 MessageStatus   @default(pending)
   availableAt            DateTime?

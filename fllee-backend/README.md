@@ -57,7 +57,7 @@ You can also start directly with:
 npm start
 ```
 
-On startup, Fleebee now ensures the configured SQLite file exists and runs `prisma db push` before the server seeds default data.
+On startup, Fleebee now ensures the configured SQLite file exists and runs `prisma db push` before the server initializes its default phone state.
 
 Default app URL:
 
@@ -98,9 +98,23 @@ The app container:
 - `SCHEDULE_POLL_MS=30000`
   How often the backend checks for due scheduled messages and turns them into queued SMS jobs.
 - `SMS_SEND_PASSWORD=1234`
-  Required operator password before the backend will queue a remote SMS.
+  Initial SMS send password used only to seed the database if no DB-backed password exists yet.
+- `SMS_ADMIN_PASSWORD=1234`
+  Admin-only password for changing the DB-backed SMS send password and signature from the SMS page.
+- `APP_LOGIN_PASSWORD=1234`
+  Browser login password for the dashboard UI.
+- `APP_SESSION_SECRET=change-this-before-public-https`
+  Cookie-signing secret used for the browser login session.
+- `APP_SESSION_IDLE_TIMEOUT_MS=900000`
+  How long an authenticated browser session can stay idle before the operator must sign in again.
+- `APP_SESSION_COOKIE_SECURE=false`
+  Keep `false` while using local HTTP access; switch to `true` once Fleebee is only served through HTTPS.
+- `SMS_GATEWAY_MODE=registered-bikers`
+  `registered-bikers` sends to each active biker's saved phone number. `test-routing` keeps the old single-number safety route.
 - `SMS_GATEWAY_TARGET_NUMBER=0788690545`
-  Current default test-routing recipient.
+  Used only when `SMS_GATEWAY_MODE=test-routing`.
+- `SEED_DEFAULT_BIKERS=false`
+  Keeps fresh databases empty so production starts with real riders instead of demo records.
 
 ## Important endpoints
 - `GET /health`
@@ -131,9 +145,12 @@ The app container:
 - `npm start` and `node server.js` now prepare the configured SQLite database automatically, which helps if the app is started outside Docker or outside the `systemd` service path
 - Important setup values now live in `.env`, with a safe starting template in `.env.example`
 - The browser dashboard is now served directly by this backend, using the static assets under `flee-frontend/public`
-- `SMS_SEND_PASSWORD` controls the password the operator must enter before a remote SMS can be queued
+- The actual SMS send password now lives in the database and is checked on every direct send
+- `SMS_SEND_PASSWORD` is now only the bootstrap default for fresh databases
+- `SMS_ADMIN_PASSWORD` gates changes to the SMS send password and signature from the SMS page
 - Scheduled messages run from the backend worker, which checks due plans every `SCHEDULE_POLL_MS` and queues them automatically
-- Gateway behavior such as duplicate windows, heartbeat timing, target number, fixed location, and device identity is env-driven now
+- Gateway behavior such as duplicate windows, heartbeat timing, routing mode, fixed location, and device identity is env-driven now
+- Only bikers marked `Active` can be selected for live SMS or schedules
 - Duplicate protection currently prevents the same message body from being queued to the same target number again for 10 minutes
 - During current USB testing, the Android app reaches this backend through `adb reverse tcp:4100 tcp:4100`
 - The Docker setup still works with `adb reverse tcp:4100 tcp:4100` because the app is published on host port `4100`

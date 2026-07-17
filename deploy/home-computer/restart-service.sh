@@ -2,8 +2,9 @@
 set -euo pipefail
 
 REMOTE_HOST="${REMOTE_HOST:-richard@192.168.1.50}"
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=5)
 
-ssh "$REMOTE_HOST" <<'EOF'
+ssh "${SSH_OPTS[@]}" "$REMOTE_HOST" 'bash -s' <<'EOF'
 set -euo pipefail
 
 linger_state="$(loginctl show-user "$USER" -p Linger --value 2>/dev/null || true)"

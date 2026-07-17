@@ -30,8 +30,13 @@ const API_BASE = resolveApiBaseUrl(runtimeConfig.apiBaseUrl);
 const APP_NAME = runtimeConfig.appName || "Fleebee Dispatch Desk";
 const REFRESH_INTERVAL_MS = Number(runtimeConfig.refreshIntervalMs || 5000);
 const BUNDLE_REFRESH_INTERVAL_MS = Number(runtimeConfig.bundleRefreshIntervalMs || 0);
-const PAGE_VIEW = document.body.dataset.view || "home";
+const SESSION_IDLE_TIMEOUT_MS = Number(runtimeConfig.sessionIdleTimeoutMs || 15 * 60 * 1000);
+const PAGE_VIEW = document.body.dataset.view || "overview";
 const REVEAL_HIDE_MS = 5000;
+const SESSION_TOUCH_COOLDOWN_MS = Math.min(
+  60 * 1000,
+  Math.max(15 * 1000, Math.floor(SESSION_IDLE_TIMEOUT_MS / 4))
+);
 
 const state = {
   bikers: [],
@@ -41,7 +46,10 @@ const state = {
   summary: null,
   serverHealth: null,
   testRoute: "",
-  passwordSaved: false,
+  smsSettings: {
+    passwordConfigured: false,
+    signature: ""
+  },
   lastUpdatedAt: null,
   recentPage: 0,
   recentPageSize: 5,
@@ -66,8 +74,11 @@ const testRouteLabel = $("testRouteLabel");
 const phoneBadge = $("phoneBadge");
 const bundleAlertButton = $("bundleAlertButton");
 const refreshButton = $("refreshButton");
+const logoutButton = $("logoutButton");
 const pageNotice = $("pageNotice");
 const newSmsButton = $("newSmsButton");
+const sendSmsSectionButton = $("sendSmsSectionButton");
+const navLinks = [...document.querySelectorAll("[data-nav-view]")];
 
 const serverStatusValue = $("serverStatusValue");
 const serverServiceValue = $("serverServiceValue");
@@ -98,10 +109,11 @@ const recentPageLabel = $("recentPageLabel");
 const smsTableBody = $("smsTableBody");
 const scheduleTableBody = $("scheduleTableBody");
 const newScheduleButton = $("newScheduleButton");
-const savedPasswordInput = $("savedPasswordInput");
-const savePasswordButton = $("savePasswordButton");
-const clearPasswordButton = $("clearPasswordButton");
-const passwordStatusNote = $("passwordStatusNote");
+const adminPasswordInput = $("adminPasswordInput");
+const dispatchPasswordSettingInput = $("dispatchPasswordSettingInput");
+const signatureInput = $("signatureInput");
+const saveSmsSettingsButton = $("saveSmsSettingsButton");
+const smsSettingsNote = $("smsSettingsNote");
 
 const bikerForm = $("bikerForm");
 const nameInput = $("nameInput");
@@ -147,9 +159,12 @@ const composeSendAt = $("composeSendAt");
 const composeRepeat = $("composeRepeat");
 const composePasswordRow = $("composePasswordRow");
 const composePassword = $("composePassword");
-const composePasswordHint = $("composePasswordHint");
 const composeNotice = $("composeNotice");
 const composeSubmit = $("composeSubmit");
+
+let sessionExpiryTimer = 0;
+let lastSessionTouchAt = 0;
+let sessionTouchInFlight = null;
 
 /* ---------- Utilities ---------- */
 
@@ -296,11 +311,66 @@ function setNotice(element, message, tone = "muted") {
   element.style.color = tone === "error" ? "#b3261e" : tone === "success" ? "#17804a" : "#5b6779";
 }
 
+function normalizeSessionReason(reason) {
+  if (reason === "expired") {
+    return "expired";
+  }
+
+  if (reason === "logged-out") {
+    return "logged-out";
+  }
+
+  return "auth-required";
+}
+
+function buildLoginUrl(reason = "auth-required") {
+  const params = new URLSearchParams();
+  const target = `${window.location.pathname}${window.location.search || ""}`;
+
+  if (target !== "/") {
+    params.set("redirect", target);
+  }
+  params.set("reason", normalizeSessionReason(reason));
+
+  return `/login/?${params.toString()}`;
+}
+
+function redirectToLogin(reason = "auth-required") {
+  window.location.replace(buildLoginUrl(reason));
+}
+
+function scheduleSessionExpiry(deadlineMs = Date.now() + SESSION_IDLE_TIMEOUT_MS) {
+  if (sessionExpiryTimer) {
+    window.clearTimeout(sessionExpiryTimer);
+  }
+
+  const delay = Math.max(1000, deadlineMs - Date.now());
+  sessionExpiryTimer = window.setTimeout(() => {
+    redirectToLogin("expired");
+  }, delay);
+}
+
+async function logoutAndRedirect(reason = "logged-out") {
+  try {
+    await fetch(`${API_BASE}/api/session/logout`, {
+      method: "POST",
+      credentials: "same-origin"
+    });
+  } catch {
+    // Ignore network failures here and still move the operator back to login.
+  }
+
+  redirectToLogin(reason);
+}
+
 async function fetchJson(path, options) {
   let response;
 
   try {
-    response = await fetch(`${API_BASE}${path}`, options);
+    response = await fetch(`${API_BASE}${path}`, {
+      credentials: "same-origin",
+      ...options
+    });
   } catch (error) {
     const networkError = new Error(
       `Cannot reach the backend at ${API_BASE}. Make sure the Fleebee backend is running and reachable from this browser.`
@@ -315,6 +385,10 @@ async function fetchJson(path, options) {
     : await response.text();
 
   if (!response.ok) {
+    if (response.status === 401) {
+      redirectToLogin(typeof payload === "object" ? payload?.reason : "expired");
+    }
+
     const error = new Error(
       typeof payload === "string"
         ? payload || `Request failed with ${response.status}`
@@ -326,6 +400,36 @@ async function fetchJson(path, options) {
   }
 
   return payload;
+}
+
+function noteUserActivity({ force = false } = {}) {
+  scheduleSessionExpiry();
+
+  const now = Date.now();
+  if (!force && now - lastSessionTouchAt < SESSION_TOUCH_COOLDOWN_MS) {
+    return;
+  }
+
+  if (sessionTouchInFlight) {
+    return;
+  }
+
+  lastSessionTouchAt = now;
+  sessionTouchInFlight = fetchJson("/api/session/touch", { method: "POST" })
+    .then((payload) => {
+      const expiresAtMs = Date.parse(payload.expiresAt || "");
+      if (Number.isFinite(expiresAtMs)) {
+        scheduleSessionExpiry(expiresAtMs);
+      }
+    })
+    .catch((error) => {
+      if (error.status !== 401) {
+        console.warn("Session touch failed:", error);
+      }
+    })
+    .finally(() => {
+      sessionTouchInFlight = null;
+    });
 }
 
 /* ---------- Modals ---------- */
@@ -365,8 +469,8 @@ async function loadAll({ announce = false } = {}) {
   }
 
   const health = await fetchJson("/health").catch(() => null);
-  const passwordSetting = await fetchJson("/api/settings/dispatch-password").catch(() => null);
-  const [dashboard, bikers, messages, schedules] = await Promise.all([
+  const [smsSettings, dashboard, bikers, messages, schedules] = await Promise.all([
+    fetchJson("/api/settings/sms").catch(() => null),
     fetchJson("/api/dashboard"),
     fetchJson("/api/bikers"),
     fetchJson("/api/messages"),
@@ -374,7 +478,10 @@ async function loadAll({ announce = false } = {}) {
   ]);
 
   state.serverHealth = health;
-  state.passwordSaved = Boolean(passwordSetting?.saved);
+  state.smsSettings = {
+    passwordConfigured: Boolean(smsSettings?.passwordConfigured),
+    signature: String(smsSettings?.signature || "")
+  };
   state.summary = dashboard.summary;
   state.phone = dashboard.phone;
   state.testRoute = dashboard.testRoute;
@@ -395,6 +502,12 @@ async function loadAll({ announce = false } = {}) {
     }
   }
 
+  for (const id of state.composeRecipients) {
+    if (!state.bikers.some((biker) => biker.id === id && isActiveBiker(biker))) {
+      state.composeRecipients.delete(id);
+    }
+  }
+
   renderAll();
 
   if (announce) {
@@ -405,11 +518,18 @@ async function loadAll({ announce = false } = {}) {
 /* ---------- Shared rendering ---------- */
 
 function renderShared() {
-  document.title = PAGE_VIEW === "settings"
-    ? `${APP_NAME} — Settings`
-    : PAGE_VIEW === "sms"
-      ? `${APP_NAME} — SMS`
-      : APP_NAME;
+  const pageTitles = {
+    overview: "Overview",
+    "send-sms": "Send SMS",
+    "scheduled-sms": "Scheduled SMS",
+    "message-history": "Message History",
+    gateway: "Gateway",
+    bundles: "Bundles",
+    recipients: "Recipients",
+    "admin-settings": "Admin Settings"
+  };
+
+  document.title = `${APP_NAME} — ${pageTitles[PAGE_VIEW] || "Dashboard"}`;
 
   if (appNameLabel) {
     appNameLabel.textContent = APP_NAME;
@@ -430,6 +550,23 @@ function renderShared() {
     const alertSignal = getBundleExpiryAlert(state.phone?.bundle);
     bundleAlertButton.classList.toggle("hidden", !alertSignal);
     bundleAlertButton.title = alertSignal?.note || "";
+  }
+
+  renderSidebarNav();
+}
+
+function messageEditorBody(message) {
+  return String(message?.editorBody || message?.body || "").trim();
+}
+
+function renderSidebarNav() {
+  if (!navLinks.length) {
+    return;
+  }
+
+  for (const link of navLinks) {
+    const active = link.dataset.navView === PAGE_VIEW;
+    link.classList.toggle("active", active);
   }
 }
 
@@ -911,27 +1048,52 @@ function renderScheduleTable() {
   }).join("");
 }
 
-function renderPasswordStatus() {
-  if (!passwordStatusNote) {
+function renderSmsSettingsStatus() {
+  if (!smsSettingsNote) {
     return;
   }
 
-  if (state.passwordSaved) {
+  const signature = String(state.smsSettings.signature || "").trim();
+  if (state.smsSettings.passwordConfigured && signature) {
     setNotice(
-      passwordStatusNote,
-      "A dispatch password is saved on the server. Sending is one click from any device — no password prompt.",
+      smsSettingsNote,
+      `SMS send password is configured. Signature will be appended automatically: ${signature}`,
       "success"
     );
-  } else {
+    return;
+  }
+
+  if (state.smsSettings.passwordConfigured) {
     setNotice(
-      passwordStatusNote,
-      "No password saved. You will be asked for the dispatch password on every send.",
-      "muted"
+      smsSettingsNote,
+      "SMS send password is configured. No signature is currently appended.",
+      "success"
     );
+    return;
+  }
+
+  setNotice(
+    smsSettingsNote,
+    "SMS send password is not configured yet. An admin must save it on this page before direct sends can be queued.",
+    "muted"
+  );
+}
+
+function renderSmsSettingsForm() {
+  if (signatureInput && document.activeElement !== signatureInput) {
+    signatureInput.value = state.smsSettings.signature || "";
   }
 }
 
 /* ---------- Settings page ---------- */
+
+function isActiveBiker(biker) {
+  return String(biker?.status || "").trim().toLowerCase() === "active";
+}
+
+function activeBikers() {
+  return state.bikers.filter(isActiveBiker);
+}
 
 function bikerStatusSummary(biker) {
   const labels = [biker.status];
@@ -977,7 +1139,7 @@ function renderBikerTable() {
   if (state.bikers.length === 0) {
     bikerTableBody.innerHTML = `
       <tr>
-        <td colspan="6" class="empty-table">No bikers yet. Add the first one above.</td>
+        <td colspan="6" class="empty-table">No recipients yet. Add the first one above.</td>
       </tr>
     `;
     return;
@@ -1021,11 +1183,11 @@ function renderBikerFormState() {
   const biker = state.bikers.find((item) => item.id === state.editingBikerId) || null;
 
   if (!biker) {
-    bikerPanelTitle.textContent = "Add Biker";
+    bikerPanelTitle.textContent = "Add Recipient";
     if (bikerPanelNote) {
       bikerPanelNote.textContent = "Fill in the rider's details, then save.";
     }
-    bikerSubmitButton.textContent = "Add Biker";
+    bikerSubmitButton.textContent = "Add Recipient";
     if (bikerResetButton) {
       bikerResetButton.textContent = "Clear Form";
     }
@@ -1172,16 +1334,7 @@ function renderComposeWhen() {
 
   const needsPassword = state.composeMode === "new" && state.composeWhen === "now";
   if (composePasswordRow) {
-    composePasswordRow.classList.toggle("hidden", !needsPassword || state.passwordSaved);
-  }
-  if (composePasswordHint) {
-    if (needsPassword && state.passwordSaved) {
-      composePasswordHint.textContent = "Uses the dispatch password saved on the server (see the SMS page).";
-      composePasswordHint.classList.remove("hidden");
-    } else {
-      composePasswordHint.textContent = "";
-      composePasswordHint.classList.add("hidden");
-    }
+    composePasswordRow.classList.toggle("hidden", !needsPassword);
   }
 
   if (composeSubmit) {
@@ -1198,14 +1351,29 @@ function syncComposeBikerOptions(selectedId) {
     return;
   }
 
-  composeBiker.innerHTML = state.bikers.map((biker) => `
-    <option value="${escapeHtml(biker.id)}">${escapeHtml(biker.name)} — ${escapeHtml(biker.bikePlate)}</option>
+  const recipients = activeBikers();
+  const selectedBiker = state.bikers.find((biker) => biker.id === selectedId);
+  const options = [...recipients];
+  if (selectedBiker && !isActiveBiker(selectedBiker) && !options.some((biker) => biker.id === selectedBiker.id)) {
+    options.unshift(selectedBiker);
+  }
+
+  if (options.length === 0) {
+    composeBiker.innerHTML = '<option value="">No active bikers available</option>';
+    composeBiker.value = "";
+    return;
+  }
+
+  composeBiker.innerHTML = options.map((biker) => `
+    <option value="${escapeHtml(biker.id)}">${escapeHtml(biker.name)} — ${escapeHtml(biker.bikePlate)}${isActiveBiker(biker) ? "" : " (Inactive)"}</option>
   `).join("");
 
-  if (selectedId && state.bikers.some((biker) => biker.id === selectedId)) {
+  if (selectedId && options.some((biker) => biker.id === selectedId)) {
     composeBiker.value = selectedId;
-  } else if (state.bikers[0]) {
-    composeBiker.value = state.bikers[0].id;
+  } else if (recipients[0]) {
+    composeBiker.value = recipients[0].id;
+  } else if (options[0]) {
+    composeBiker.value = options[0].id;
   }
 }
 
@@ -1214,7 +1382,29 @@ function renderComposeRecipients() {
     return;
   }
 
-  composeRecipientList.innerHTML = state.bikers.map((biker) => `
+  const recipients = activeBikers();
+  for (const id of [...state.composeRecipients]) {
+    if (!recipients.some((biker) => biker.id === id)) {
+      state.composeRecipients.delete(id);
+    }
+  }
+
+  if (recipients.length === 0) {
+    composeRecipientList.innerHTML = `
+      <div class="empty-table">No active recipients available. Mark a rider Active in Recipients first.</div>
+    `;
+    if (composeRecipientCount) {
+      composeRecipientCount.textContent = "0 of 0 selected";
+    }
+    if (composeAllBikers) {
+      composeAllBikers.checked = false;
+      composeAllBikers.indeterminate = false;
+      composeAllBikers.disabled = true;
+    }
+    return;
+  }
+
+  composeRecipientList.innerHTML = recipients.map((biker) => `
     <label class="recipient-item">
       <input type="checkbox" data-recipient-id="${escapeHtml(biker.id)}" ${state.composeRecipients.has(biker.id) ? "checked" : ""}>
       <span class="recipient-name">${escapeHtml(biker.name)}</span>
@@ -1222,13 +1412,14 @@ function renderComposeRecipients() {
     </label>
   `).join("");
 
-  const total = state.bikers.length;
+  const total = recipients.length;
   const count = state.composeRecipients.size;
 
   if (composeRecipientCount) {
     composeRecipientCount.textContent = `${count} of ${total} selected`;
   }
   if (composeAllBikers) {
+    composeAllBikers.disabled = false;
     composeAllBikers.checked = total > 0 && count === total;
     composeAllBikers.indeterminate = count > 0 && count < total;
   }
@@ -1280,7 +1471,7 @@ function openCompose(mode = "new", target = null) {
     if (composeTitle) composeTitle.textContent = "Edit Pending SMS";
     if (composeNote) composeNote.textContent = "Saving restarts the 2-minute wait before the phone sends it.";
     syncComposeBikerOptions(target.bikerId);
-    if (composeMessage) composeMessage.value = target.body;
+    if (composeMessage) composeMessage.value = messageEditorBody(target);
   } else if (mode === "edit-schedule") {
     state.composeCategory = target.category;
     state.composeWhen = "later";
@@ -1294,9 +1485,17 @@ function openCompose(mode = "new", target = null) {
     state.composeCategory = "REMINDER";
     state.composeWhen = "now";
     state.composeRecipients.clear();
+    if (activeBikers().length === 1) {
+      state.composeRecipients.add(activeBikers()[0].id);
+    }
     state.lastSuggestion = "";
     if (composeTitle) composeTitle.textContent = "New SMS";
-    if (composeNote) composeNote.textContent = "Pick one or more bikers, then send now or schedule it.";
+    if (composeNote) {
+      const signature = String(state.smsSettings.signature || "").trim();
+      composeNote.textContent = signature
+        ? `Pick one or more bikers, then send now or schedule it. Current signature: ${signature}`
+        : "Pick one or more bikers, then send now or schedule it.";
+    }
     renderComposeRecipients();
     if (composeSendAt) {
       const nextHour = new Date(Date.now() + 60 * 60 * 1000);
@@ -1307,6 +1506,9 @@ function openCompose(mode = "new", target = null) {
     applyComposeSuggestion(true);
   }
 
+  if (composePassword) {
+    composePassword.value = "";
+  }
   renderComposeCategories();
   renderComposeWhen();
   openModal(composeModal);
@@ -1408,8 +1610,8 @@ async function submitCompose() {
   }
 
   const password = composePassword?.value || "";
-  if (!password && !state.passwordSaved) {
-    setNotice(composeNotice, "Enter the dispatch password, or save one on the SMS page.", "error");
+  if (!password) {
+    setNotice(composeNotice, "Enter the SMS send password to continue.", "error");
     if (composePasswordRow) {
       composePasswordRow.classList.remove("hidden");
     }
@@ -1449,15 +1651,12 @@ async function submitCompose() {
     setNotice(
       composeNotice,
       queued > 0
-        ? `Wrong dispatch password — stopped after queueing ${queued} of ${recipientIds.length}.`
-        : "Wrong dispatch password.",
+        ? `Wrong SMS send password — stopped after queueing ${queued} of ${recipientIds.length}.`
+        : "Wrong SMS send password.",
       "error"
     );
     if (composePasswordRow) {
       composePasswordRow.classList.remove("hidden");
-    }
-    if (composePasswordHint) {
-      composePasswordHint.classList.add("hidden");
     }
     composePassword?.focus();
     composePassword?.select();
@@ -1558,7 +1757,8 @@ function renderAll() {
   renderRecentTable();
   renderSmsTable();
   renderScheduleTable();
-  renderPasswordStatus();
+  renderSmsSettingsForm();
+  renderSmsSettingsStatus();
   renderBikerTable();
   renderBikerFormState();
 }
@@ -1573,8 +1773,20 @@ if (refreshButton) {
   });
 }
 
+if (logoutButton) {
+  logoutButton.addEventListener("click", () => {
+    logoutAndRedirect();
+  });
+}
+
 if (newSmsButton) {
   newSmsButton.addEventListener("click", () => {
+    openCompose("new");
+  });
+}
+
+if (sendSmsSectionButton) {
+  sendSmsSectionButton.addEventListener("click", () => {
     openCompose("new");
   });
 }
@@ -1679,42 +1891,47 @@ if (scheduleTableBody) {
   });
 }
 
-if (savePasswordButton) {
-  savePasswordButton.addEventListener("click", async () => {
-    const value = savedPasswordInput?.value.trim() || "";
-    if (!value) {
-      setNotice(passwordStatusNote, "Type the dispatch password first, then save.", "error");
+if (saveSmsSettingsButton) {
+  saveSmsSettingsButton.addEventListener("click", async () => {
+    const adminPassword = adminPasswordInput?.value.trim() || "";
+    const dispatchPassword = dispatchPasswordSettingInput?.value || "";
+    const signature = signatureInput?.value || "";
+
+    if (!adminPassword) {
+      setNotice(smsSettingsNote, "Enter the admin password before changing SMS settings.", "error");
+      adminPasswordInput?.focus();
       return;
     }
 
-    setNotice(passwordStatusNote, "Checking and saving password...");
+    setNotice(smsSettingsNote, "Saving SMS settings...");
 
     try {
-      await fetchJson("/api/settings/dispatch-password", {
+      const response = await fetchJson("/api/settings/sms", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: value })
+        body: JSON.stringify({
+          adminPassword,
+          dispatchPassword,
+          signature
+        })
       });
 
-      state.passwordSaved = true;
-      if (savedPasswordInput) {
-        savedPasswordInput.value = "";
-      }
-      renderPasswordStatus();
-    } catch (error) {
-      setNotice(passwordStatusNote, error.message, "error");
-    }
-  });
-}
+      state.smsSettings = {
+        passwordConfigured: Boolean(response.passwordConfigured),
+        signature: String(response.signature || "")
+      };
 
-if (clearPasswordButton) {
-  clearPasswordButton.addEventListener("click", async () => {
-    try {
-      await fetchJson("/api/settings/dispatch-password", { method: "DELETE" });
-      state.passwordSaved = false;
-      renderPasswordStatus();
+      if (adminPasswordInput) {
+        adminPasswordInput.value = "";
+      }
+      if (dispatchPasswordSettingInput) {
+        dispatchPasswordSettingInput.value = "";
+      }
+
+      renderSmsSettingsForm();
+      renderSmsSettingsStatus();
     } catch (error) {
-      setNotice(passwordStatusNote, error.message, "error");
+      setNotice(smsSettingsNote, error.message, "error");
     }
   });
 }
@@ -1868,7 +2085,7 @@ if (composeRecipientList) {
 if (composeAllBikers) {
   composeAllBikers.addEventListener("change", () => {
     if (composeAllBikers.checked) {
-      state.bikers.forEach((biker) => state.composeRecipients.add(biker.id));
+      activeBikers().forEach((biker) => state.composeRecipients.add(biker.id));
     } else {
       state.composeRecipients.clear();
     }
@@ -1916,9 +2133,23 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+["pointerdown", "keydown", "touchstart"].forEach((eventName) => {
+  document.addEventListener(eventName, () => {
+    noteUserActivity();
+  }, { passive: true });
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    noteUserActivity({ force: true });
+  }
+});
+
 /* ---------- Boot ---------- */
 
 renderShared();
+scheduleSessionExpiry();
+noteUserActivity({ force: true });
 
 loadAll().catch((error) => {
   setNotice(pageNotice, `Could not load backend data: ${error.message}`, "error");

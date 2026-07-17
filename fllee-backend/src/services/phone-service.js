@@ -6,8 +6,20 @@ function isPhoneOnline(phone) {
   return Date.now() - phone.lastHeartbeatAt.getTime() <= env.PHONE_HEARTBEAT_STALE_MS;
 }
 
-function routeLabel(phone) {
-  return `${phone.fixedLocation} -> ${phone.targetNumber}`;
+function routeLabel(phone, targetLabel = phone.targetNumber) {
+  return `${phone.fixedLocation} -> ${targetLabel}`;
+}
+
+function buildPhoneConfigData() {
+  return {
+    mode: env.SMS_GATEWAY_MODE,
+    targetNumber: env.SMS_GATEWAY_TARGET_NUMBER,
+    fixedLocation: env.SMS_GATEWAY_FIXED_LOCATION,
+    batteryPolicy: env.SMS_GATEWAY_BATTERY_POLICY,
+    network: env.SMS_GATEWAY_NETWORK_LABEL,
+    deviceId: env.SMS_GATEWAY_DEVICE_ID,
+    bundleUssdCode: env.SMS_BUNDLE_USSD_CODE
+  };
 }
 
 function buildBundleSummary(status, summary, details, error, ussdCode) {
@@ -129,8 +141,11 @@ async function getPhoneState() {
     where: {
       id: env.PHONE_STATE_ID
     },
-    update: {},
-    create: buildDefaultPhoneState()
+    update: buildPhoneConfigData(),
+    create: {
+      ...buildDefaultPhoneState(),
+      ...buildPhoneConfigData()
+    }
   });
 }
 

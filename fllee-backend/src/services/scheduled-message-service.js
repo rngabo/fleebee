@@ -210,6 +210,12 @@ async function buildScheduleWriteData(payload, existing = null) {
     };
   }
 
+  if (String(biker.status || "").trim().toLowerCase() !== "active") {
+    return {
+      error: "Only active bikers can receive scheduled SMS. Mark this biker active first."
+    };
+  }
+
   const recurrence = normalizeRecurrence(payload.recurrence ?? existing?.recurrence);
   if (!recurrence) {
     return {
