@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fleebee SMS &amp; Templates</title>
+  <title>Fleebee Templates</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1626'/%3E%3Cpath d='M19 5L9.5 14.5M19 5l-5.5 14-2-6.5L5 10.5z' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/assets/css/styles.css">
 </head>
@@ -68,7 +68,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
               <path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/>
             </svg>
-            SMS &amp; Templates
+            Templates
           </a>
           <a class="side-sub-link" href="/scheduled.html" data-nav-view="scheduled-sms">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -133,89 +133,19 @@
     <div class="main">
       <header class="main-header">
         <div>
-          <h1>SMS &amp; Templates</h1>
-          <p class="header-sub">Manual sends stay here, while workflow templates below drive the automatic Kinyarwanda SMS triggered from bike progress updates.</p>
+          <h1>Templates</h1>
+          <p class="header-sub">Manage the workflow templates that drive the automatic Kinyarwanda SMS triggered from bike progress updates.</p>
         </div>
         <div class="header-actions">
           <span id="phoneBadge" class="badge badge-warn">Checking phone</span>
           <button id="bundleAlertButton" class="danger-button hidden" type="button">Check phone bundles</button>
           <button id="refreshButton" class="ghost-button" type="button">Refresh</button>
           <button id="logoutButton" class="ghost-button" type="button">Logout</button>
-          <button id="newSmsButton" class="danger-button" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
-              <path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/>
-            </svg>
-            New SMS
-          </button>
         </div>
       </header>
 
       <div class="content">
         <p id="pageNotice" class="notice page-notice"></p>
-
-        <section class="panel anchor-section" id="send-sms">
-          <div class="panel-head">
-            <div>
-              <h2>Send SMS</h2>
-              <p class="mini-note">Start a new live message to one or more active recipients. The send password is requested at the last step.</p>
-            </div>
-            <button id="sendSmsSectionButton" class="primary-button" type="button">Create New SMS</button>
-          </div>
-        </section>
-
-        <section class="panel anchor-section" id="scheduled-sms">
-          <div class="panel-head">
-            <div>
-              <h2>Scheduled SMS</h2>
-              <p class="mini-note">Planned messages that queue automatically at their time.</p>
-            </div>
-            <button id="newScheduleButton" class="ghost-button" type="button">New Schedule</button>
-          </div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Biker</th>
-                  <th>Message</th>
-                  <th>Repeat</th>
-                  <th>Next send</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="scheduleTableBody"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="panel anchor-section" id="message-history">
-          <div class="panel-head">
-            <div>
-              <h2>Message History</h2>
-              <p class="mini-note">Full details for every queued SMS, newest first.</p>
-            </div>
-          </div>
-          <p class="status-legend">
-            <span><span class="status-chip pending">PENDING</span> waiting — still editable</span>
-            <span><span class="status-chip submitted">SUBMITTED</span> handed to carrier</span>
-            <span><span class="status-chip sent">SENT</span> delivered</span>
-            <span><span class="status-chip failed">FAILED</span> needs attention</span>
-          </p>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Biker</th>
-                  <th>Type</th>
-                  <th>Message</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="smsTableBody"></tbody>
-            </table>
-          </div>
-        </section>
 
         <section class="panel anchor-section" id="workflow-templates">
           <div class="panel-head">
@@ -285,66 +215,6 @@
               </thead>
               <tbody id="templateTableBody"></tbody>
             </table>
-          </div>
-        </section>
-
-        <section class="panel anchor-section" id="admin-settings">
-          <div class="panel-head">
-            <div>
-              <h2>Admin Settings</h2>
-              <p class="mini-note">Only an admin can change the SMS route mode, the send password, or the signature appended to outgoing messages. The send password is stored in the database and is still required when sending a new SMS.</p>
-            </div>
-          </div>
-          <div class="stack">
-            <label class="field">
-              <span>Admin password</span>
-              <input id="adminPasswordInput" type="password" placeholder="Required to change SMS settings" autocomplete="current-password">
-            </label>
-            <div class="field">
-              <span>SMS route mode</span>
-              <input id="gatewayModeInput" type="hidden" value="registered-bikers">
-              <div class="mode-switch-card">
-                <div class="mode-switch-copy">
-                  <strong id="gatewayModeLabel">Real mode</strong>
-                  <small id="gatewayModeHint">SMS go to the selected active biker numbers.</small>
-                </div>
-                <label class="mode-switch" for="gatewayModeToggle">
-                  <span class="mode-switch-side">Real</span>
-                  <input id="gatewayModeToggle" type="checkbox" role="switch" aria-label="Toggle SMS route mode between real mode and testing mode">
-                  <span class="mode-switch-track" aria-hidden="true">
-                    <span class="mode-switch-thumb"></span>
-                  </span>
-                  <span class="mode-switch-side">Testing</span>
-                </label>
-              </div>
-            </div>
-            <label class="field">
-              <span>Testing target number</span>
-              <input id="gatewayTargetNumberDisplay" type="text" readonly>
-              <small class="field-hint">When Testing mode is selected, every SMS is routed to this number even if a saved biker is chosen.</small>
-            </label>
-            <label class="field">
-              <span>SMS send password</span>
-              <input id="dispatchPasswordSettingInput" type="password" placeholder="Leave blank to keep the current password" autocomplete="new-password">
-            </label>
-            <label class="field">
-              <span>SMS signature</span>
-              <textarea id="signatureInput" rows="3" placeholder="Appended under every outgoing SMS"></textarea>
-            </label>
-            <div class="action-row">
-              <button id="saveSmsSettingsButton" class="primary-button" type="button">Save SMS Settings</button>
-            </div>
-          </div>
-          <p id="smsSettingsNote" class="notice"></p>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Bundle Tools</h2>
-              <p class="mini-note">Run a manual <code>*131#</code> refresh only when you want an immediate update. The homepage keeps the latest stored result.</p>
-            </div>
-            <button id="bundleRefreshButton" class="ghost-button" type="button">Check now</button>
           </div>
         </section>
       </div>
@@ -421,9 +291,10 @@
           <p id="composeTemplateMeta" class="field-hint"></p>
         </div>
 
-        <label class="field hidden" id="composeTemplatePreviewField">
+        <label class="field preview-frame hidden" id="composeTemplatePreviewField">
           <span id="composeTemplatePreviewLabel">Final SMS text</span>
           <textarea id="composeTemplatePreview" rows="5" readonly></textarea>
+          <small id="composePreviewModeHint" class="preview-mode-hint preview-mode-active">Real mode</small>
         </label>
 
         <label class="field" id="composeMessageField">
@@ -464,7 +335,7 @@
         <div class="action-row modal-action-row">
           <button id="composeSubmit" type="submit" class="primary-button">Send SMS</button>
           <button type="button" class="ghost-button" data-close-modal="compose">Cancel</button>
-          <div id="composeRouteStatus" class="mode-status-pill mode-live" aria-live="polite">Live mode</div>
+          <div id="composeRouteStatus" class="mode-status-pill mode-live" aria-live="polite">Real mode</div>
         </div>
       </form>
     </section>

@@ -1,6 +1,7 @@
 package com.salvi.fleebeemanagement.sync
 
 import android.Manifest
+import android.app.PendingIntent
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -189,17 +190,36 @@ class GatewaySyncService : Service() {
         }
 
         try {
-            val sentIntent = GatewaySmsResultReceiver.sentPendingIntent(this, job)
-            val deliveryIntent = GatewaySmsResultReceiver.deliveryPendingIntent(this, job)
-
             @Suppress("DEPRECATION")
-            SmsManager.getDefault().sendTextMessage(
-                job.targetNumber,
-                null,
-                job.body,
-                sentIntent,
-                deliveryIntent
-            )
+            val smsManager = SmsManager.getDefault()
+            val messageParts = smsManager.divideMessage(job.body)
+            GatewaySmsTracker.register(job.id, messageParts.size)
+
+            if (messageParts.size <= 1) {
+                val sentIntent = GatewaySmsResultReceiver.sentPendingIntent(this, job, 1)
+                val deliveryIntent = GatewaySmsResultReceiver.deliveryPendingIntent(this, job)
+                smsManager.sendTextMessage(
+                    job.targetNumber,
+                    null,
+                    job.body,
+                    sentIntent,
+                    deliveryIntent
+                )
+            } else {
+                val sentIntents = arrayListOf<PendingIntent>().apply {
+                    repeat(messageParts.size) {
+                        add(GatewaySmsResultReceiver.sentPendingIntent(this@GatewaySyncService, job, messageParts.size))
+                    }
+                }
+
+                smsManager.sendMultipartTextMessage(
+                    job.targetNumber,
+                    null,
+                    messageParts,
+                    sentIntents,
+                    null
+                )
+            }
 
             updateNotification(
                 getString(R.string.gateway_notification_title),

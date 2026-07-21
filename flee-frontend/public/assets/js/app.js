@@ -92,6 +92,7 @@ const state = {
     urgencies: [...DEFAULT_WORKFLOW_URGENCIES]
   },
   phone: null,
+  adb: null,
   summary: null,
   serverHealth: null,
   testRoute: "",
@@ -154,6 +155,7 @@ const phoneOnlineValue = $("phoneOnlineValue");
 const phoneLocationValue = $("phoneLocationValue");
 const phoneNetworkValue = $("phoneNetworkValue");
 const phoneHeartbeatValue = $("phoneHeartbeatValue");
+const phoneAdbValue = $("phoneAdbValue");
 const phoneBatteryValue = $("phoneBatteryValue");
 const phoneRouteValue = $("phoneRouteValue");
 const bundleRefreshButton = $("bundleRefreshButton");
@@ -315,6 +317,7 @@ const composeTemplateMeta = $("composeTemplateMeta");
 const composeTemplatePreviewField = $("composeTemplatePreviewField");
 const composeTemplatePreviewLabel = $("composeTemplatePreviewLabel");
 const composeTemplatePreview = $("composeTemplatePreview");
+const composePreviewModeHint = $("composePreviewModeHint");
 const composeMessageField = $("composeMessageField");
 const composeMessage = $("composeMessage");
 const composeWhenField = $("composeWhenField");
@@ -805,6 +808,7 @@ async function loadAll({ announce = false } = {}) {
   };
   state.summary = dashboard.summary;
   state.phone = dashboard.phone;
+  state.adb = dashboard.adb || null;
   state.testRoute = dashboard.testRoute;
   state.bikers = bikers.items;
   state.batches = batches.items;
@@ -859,7 +863,7 @@ async function loadAll({ announce = false } = {}) {
 function renderShared() {
   const pageTitles = {
     overview: "Overview",
-    "send-sms": "SMS & Templates",
+    "send-sms": "Templates",
     "scheduled-sms": "Scheduled SMS",
     "message-history": "Message History",
     gateway: "Phone Gateway",
@@ -960,6 +964,16 @@ function renderGatewayCard() {
   }
   if (phoneHeartbeatValue) {
     phoneHeartbeatValue.textContent = formatDate(phone.lastHeartbeatAt);
+  }
+  if (phoneAdbValue) {
+    const adb = state.adb;
+    phoneAdbValue.textContent = adb?.label || "Unavailable";
+    phoneAdbValue.className = adb?.status === "connected"
+      ? "value-good"
+      : adb?.status === "disconnected" || adb?.status === "offline" || adb?.status === "unauthorized"
+        ? "value-bad"
+        : "value-warn";
+    phoneAdbValue.title = adb?.detail || "";
   }
   if (phoneBatteryValue) {
     phoneBatteryValue.textContent = phone.batteryPolicy || "-";
@@ -2361,7 +2375,7 @@ function buildComposeRouteNote() {
     return `Testing mode is active. Only 1 SMS will be queued to ${targetNumber}.${sampleNote}`;
   }
 
-  return "Active mode is on. SMS will route to the selected active bikers.";
+  return "Real mode is on. SMS will route to the selected active bikers.";
 }
 
 function renderComposeRouteStatus() {
@@ -2376,10 +2390,39 @@ function renderComposeRouteStatus() {
   composeRouteStatus.classList.add(testingMode ? "mode-testing" : "mode-live");
   composeRouteStatus.textContent = testingMode
     ? "Testing mode"
-    : "Active mode";
+    : "Real mode";
   composeRouteStatus.title = testingMode
     ? `Only 1 SMS is queued in testing mode and it is forced to ${targetNumber || "the testing number"}.`
     : "SMS will be sent to the selected active bikers.";
+}
+
+function renderComposePreviewModeState(sampleRecipient, { templateMode = false } = {}) {
+  if (!composeTemplatePreviewField || !composePreviewModeHint) {
+    return;
+  }
+
+  const testingMode = isTestingGatewayMode();
+  const targetNumber = state.smsSettings.gatewayTargetNumber || "the test number";
+
+  composeTemplatePreviewField.classList.remove("preview-frame-active", "preview-frame-testing");
+  composePreviewModeHint.classList.remove("preview-mode-active", "preview-mode-testing");
+  composeTemplatePreviewField.classList.add(testingMode ? "preview-frame-testing" : "preview-frame-active");
+  composePreviewModeHint.classList.add(testingMode ? "preview-mode-testing" : "preview-mode-active");
+
+  if (templateMode) {
+    composePreviewModeHint.textContent = testingMode
+      ? sampleRecipient
+        ? `Testing mode • Red frame • Sample preview uses ${sampleRecipient.name}. The saved template stays unchanged. Only 1 SMS will be queued to ${targetNumber}.`
+        : `Testing mode • Red frame • Sample preview only. The saved template stays unchanged. Only 1 SMS will be queued to ${targetNumber}.`
+      : sampleRecipient
+        ? `Real mode • Green frame • Sample preview uses ${sampleRecipient.name}. The saved template stays unchanged. Each biker gets personalized values when queued.`
+        : "Real mode • Green frame • Sample preview only. The saved template stays unchanged. Each biker gets personalized values when queued.";
+    return;
+  }
+
+  composePreviewModeHint.textContent = testingMode
+    ? `Testing mode • Red frame • Only 1 SMS will be queued to ${targetNumber}.`
+    : "Real mode • Green frame • Selected bikers receive this final message text.";
 }
 
 function renderComposeTargetTabs() {
@@ -2531,8 +2574,8 @@ function renderComposeTemplatePreview() {
 
   const sampleRecipient = composeSelectedRecipients()[0] || activeBikers()[0] || null;
   if (composeTemplatePreviewLabel) {
-    composeTemplatePreviewLabel.textContent = sampleRecipient
-      ? `Final SMS text for ${sampleRecipient.name}`
+    composeTemplatePreviewLabel.textContent = state.composeMode === "new" && state.composeBodyMode === "template" && sampleRecipient
+      ? `Sample final SMS for ${sampleRecipient.name}`
       : "Final SMS text";
   }
 
@@ -2541,6 +2584,7 @@ function renderComposeTemplatePreview() {
     if (!template) {
       composeTemplatePreview.value = "";
       composeTemplateMeta.textContent = "Choose an active template first.";
+      renderComposePreviewModeState(sampleRecipient, { templateMode: true });
       return;
     }
 
@@ -2549,22 +2593,24 @@ function renderComposeTemplatePreview() {
       : template.body;
     const finalBody = buildDeliveryBody(previewBody, state.smsSettings.signature);
     composeTemplatePreview.value = finalBody;
+    renderComposePreviewModeState(sampleRecipient, { templateMode: true });
     if (isTestingGatewayMode()) {
       composeTemplateMeta.textContent = sampleRecipient
-        ? `${titleCaseFromSlug(template.category)} • ${titleCaseFromSlug(template.urgency)} • Testing mode uses ${sampleRecipient.name}'s values and queues only 1 SMS to ${state.smsSettings.gatewayTargetNumber || "the test number"}.`
-        : `${titleCaseFromSlug(template.category)} • ${titleCaseFromSlug(template.urgency)} • Testing mode queues only 1 SMS to ${state.smsSettings.gatewayTargetNumber || "the test number"}.`;
+        ? `${titleCaseFromSlug(template.category)} • ${titleCaseFromSlug(template.urgency)} • Sample preview uses ${sampleRecipient.name}. The saved template stays unchanged.`
+        : `${titleCaseFromSlug(template.category)} • ${titleCaseFromSlug(template.urgency)} • Sample preview only. The saved template stays unchanged.`;
       return;
     }
 
     composeTemplateMeta.textContent = sampleRecipient
-      ? `${titleCaseFromSlug(template.category)} • ${titleCaseFromSlug(template.urgency)} • Preview uses ${sampleRecipient.name}. Each biker gets their own values when queued.`
-      : `${titleCaseFromSlug(template.category)} • ${titleCaseFromSlug(template.urgency)} • Placeholders are filled per biker when the SMS is queued.`;
+      ? `${titleCaseFromSlug(template.category)} • ${titleCaseFromSlug(template.urgency)} • Sample preview uses ${sampleRecipient.name}. The saved template stays unchanged.`
+      : `${titleCaseFromSlug(template.category)} • ${titleCaseFromSlug(template.urgency)} • Sample preview only. The saved template stays unchanged.`;
     return;
   }
 
   const body = composeMessage?.value.trim() || "";
   const signature = String(state.smsSettings.signature || "").trim();
   composeTemplatePreview.value = buildDeliveryBody(body, signature);
+  renderComposePreviewModeState(sampleRecipient, { templateMode: false });
 
   if (!body) {
     composeTemplateMeta.textContent = "Write the message body above to preview the final SMS text.";

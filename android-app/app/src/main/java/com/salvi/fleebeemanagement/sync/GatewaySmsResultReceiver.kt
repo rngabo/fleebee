@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import android.telephony.SmsManager
 import kotlin.concurrent.thread
 
@@ -25,6 +26,16 @@ class GatewaySmsResultReceiver : BroadcastReceiver() {
                 val report = if (action == ACTION_SMS_DELIVERED) {
                     deliveryReport(resultCode, targetNumber)
                 } else {
+                    val totalParts = intent.getIntExtra(EXTRA_PART_COUNT, 1).coerceAtLeast(1)
+                    val shouldReport = if (resultCode == Activity.RESULT_OK) {
+                        GatewaySmsTracker.recordSentSuccess(jobId, totalParts)
+                    } else {
+                        GatewaySmsTracker.clear(jobId)
+                        true
+                    }
+                    if (!shouldReport) {
+                        return@thread
+                    }
                     sentReport(resultCode, targetNumber, intent.getIntExtra("errorCode", -1))
                 }
 
@@ -46,6 +57,7 @@ class GatewaySmsResultReceiver : BroadcastReceiver() {
         }
 
         val failure = when (resultCode) {
+            Activity.RESULT_CANCELED -> "Android cancelled the SMS request."
             SmsManager.RESULT_ERROR_GENERIC_FAILURE -> {
                 if (errorCode >= 0) {
                     "Generic carrier failure (error code $errorCode)."
@@ -96,12 +108,14 @@ class GatewaySmsResultReceiver : BroadcastReceiver() {
         private const val ACTION_SMS_DELIVERED = "com.salvi.fleebeemanagement.sync.SMS_DELIVERED"
         private const val EXTRA_JOB_ID = "jobId"
         private const val EXTRA_TARGET_NUMBER = "targetNumber"
+        private const val EXTRA_PART_COUNT = "partCount"
 
-        fun sentPendingIntent(context: Context, job: GatewayJob): PendingIntent {
+        fun sentPendingIntent(context: Context, job: GatewayJob, partCount: Int = 1): PendingIntent {
             val intent = Intent(context, GatewaySmsResultReceiver::class.java).apply {
                 action = ACTION_SMS_SENT
                 putExtra(EXTRA_JOB_ID, job.id)
                 putExtra(EXTRA_TARGET_NUMBER, job.targetNumber)
+                putExtra(EXTRA_PART_COUNT, partCount.coerceAtLeast(1))
             }
 
             return PendingIntent.getBroadcast(
@@ -126,5 +140,39 @@ class GatewaySmsResultReceiver : BroadcastReceiver() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
+    }
+}
+
+object GatewaySmsTracker {
+    private data class SendState(
+        val partCount: Int,
+        var successfulParts: Int = 0
+    )
+
+    private val states = mutableMapOf<String, SendState>()
+
+    @Synchronized
+    fun register(jobId: String, partCount: Int) {
+        states[jobId] = SendState(partCount = partCount.coerceAtLeast(1))
+    }
+
+    @Synchronized
+    fun recordSentSuccess(jobId: String, partCount: Int): Boolean {
+        val state = states.getOrPut(jobId) {
+            SendState(partCount = partCount.coerceAtLeast(1))
+        }
+        state.successfulParts += 1
+        if (state.successfulParts < state.partCount) {
+            Log.d("GatewaySmsResult", "Waiting for remaining SMS parts for $jobId (${state.successfulParts}/${state.partCount})")
+            return false
+        }
+
+        states.remove(jobId)
+        return true
+    }
+
+    @Synchronized
+    fun clear(jobId: String) {
+        states.remove(jobId)
     }
 }

@@ -118,6 +118,9 @@ const env = {
     "Wi-Fi / mobile fallback"
   ),
   SMS_GATEWAY_DEVICE_ID: stringFromEnv("SMS_GATEWAY_DEVICE_ID", "android-home-gateway"),
+  SMS_GATEWAY_ADB_COMMAND: stringFromEnv("SMS_GATEWAY_ADB_COMMAND", "/home/richard/bin/adb-home"),
+  SMS_GATEWAY_ADB_SERIAL: stringFromEnv("SMS_GATEWAY_ADB_SERIAL", ""),
+  SMS_GATEWAY_ADB_TIMEOUT_MS: numberFromEnv("SMS_GATEWAY_ADB_TIMEOUT_MS", 4000),
   SEED_DEFAULT_BIKERS: booleanFromEnv("SEED_DEFAULT_BIKERS", false),
   SMS_BUNDLE_USSD_CODE: stringFromEnv("SMS_BUNDLE_USSD_CODE", "*131#"),
   SMS_BUNDLE_REFRESH_INTERVAL_MS: numberFromEnv(

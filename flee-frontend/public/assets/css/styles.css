@@ -708,6 +708,52 @@ a {
   align-items: center;
 }
 
+.preview-frame {
+  padding: 14px;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: #fcfdff;
+}
+
+.preview-frame textarea {
+  border-width: 2px;
+}
+
+.preview-frame-active {
+  border-color: rgba(15, 138, 67, 0.32);
+  background: rgba(15, 138, 67, 0.05);
+}
+
+.preview-frame-active textarea {
+  border-color: rgba(15, 138, 67, 0.45);
+  background: #ffffff;
+}
+
+.preview-frame-testing {
+  border-color: rgba(217, 45, 32, 0.32);
+  background: rgba(217, 45, 32, 0.05);
+}
+
+.preview-frame-testing textarea {
+  border-color: rgba(217, 45, 32, 0.45);
+  background: #ffffff;
+}
+
+.preview-mode-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.preview-mode-active {
+  color: #0f8a43;
+}
+
+.preview-mode-testing {
+  color: #d92d20;
+}
+
 .mode-status-pill {
   margin-left: auto;
   display: inline-flex;
@@ -1233,6 +1279,10 @@ a {
   grid-template-columns: 330px minmax(0, 1fr);
   gap: 18px;
   align-items: start;
+}
+
+.gateway-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .stack-col {

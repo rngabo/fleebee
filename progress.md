@@ -915,3 +915,155 @@ The big recent wins were bundle automation, persistent ADB recovery on `.50`, ni
 - Hard refresh the Fleebee tab so the newest frontend JS is loaded.
 - Toggle `Testing mode`, confirm the notice says there are unsaved changes, then press `Save SMS Settings`.
 - After save, the success message should explicitly confirm that `Testing mode` is now saved.
+
+## 2026-07-21
+
+### What changed
+
+- Added a visible mode frame directly around the compose preview text:
+  - green frame with `Real mode` guidance
+  - red frame with `Testing mode` guidance
+- Changed template preview wording from `Final SMS text for ...` to `Sample final SMS for ...` when a saved template is being previewed for a biker.
+- Added explicit copy that the saved template stays unchanged and that the shown batch/template message is only a sample preview.
+- Synced the updated frontend files to the live home-computer paths and verified the served files contain the new mode-frame and sample-preview text.
+
+### Decisions made and why
+
+- Put the mode signal directly around the preview area because the action-row badge was easy to miss on taller modals.
+- Kept the preview sample driven by the first selected biker so the operator can understand the real rendered SMS while still sending personalized values for each biker in real mode.
+
+### Current state
+
+- In real mode, the preview area should now show a green frame and bottom text explaining it is a sample preview and the template stays unchanged.
+- In testing mode, the preview area should now show a red frame and bottom text explaining only 1 SMS will be queued to the test number.
+- For batch template sends, the preview is a sample only; it does not overwrite the saved template.
+
+### Next steps
+
+- Hard refresh the Fleebee tab if the old plain preview still appears from browser cache.
+- Reopen `New SMS` and check the preview frame color and bottom mode text in both real mode and testing mode.
+
+## 2026-07-21
+
+### What changed
+
+- Converted `/sms/index.html` from `SMS & Templates` into a focused `Templates` page.
+- Removed these sections from that page:
+  - `Send SMS`
+  - `Scheduled SMS`
+  - `Message History`
+  - `Admin Settings`
+  - `Bundle Tools`
+- Renamed the sidebar menu label from `SMS & Templates` to `Templates` across the frontend.
+- Updated the browser/page title mapping so the `send-sms` view now reads `Templates`.
+- Synced the updated frontend files to the live home-computer paths and verified the live `/sms/index.html` page now shows only the workflow templates section.
+
+### Decisions made and why
+
+- Left the route itself as `/sms/index.html` for stability, but repurposed the page contents to templates-only so existing links keep working.
+- Kept the shared frontend JavaScript in place and removed only the page-specific sections, because the shared code already guards against missing DOM blocks safely.
+
+### Current state
+
+- The sidebar menu item now reads `Templates`.
+- The live templates page now shows:
+  - the page notice area
+  - the workflow template form/table
+- The removed sections no longer appear on that page.
+
+### Next steps
+
+- Hard refresh the Fleebee tab if the old `SMS & Templates` page still appears from browser cache.
+- Open `/sms/index.html` again and confirm it now behaves like a templates-only page.
+
+## 2026-07-21
+
+### What changed
+
+- Investigated a real-mode batch send failure where all six queued SMS came back with `Android returned SMS send result code 0`.
+- Verified from the live home-computer database that:
+  - the failed batch was sent in `registered-bikers` mode
+  - the Android gateway was still heartbeating normally
+  - the phone still had bundle capacity available (`979 SMS` remaining)
+  - the failed delivered-body lengths were mostly `166-170` characters after the signature was appended
+- Updated the Android gateway app to support multipart SMS sending in:
+  - [GatewaySyncService.kt](/home/richard/APPS/SALVI/2026/fleebee-management/android-app/app/src/main/java/com/salvi/fleebeemanagement/sync/GatewaySyncService.kt)
+  - [GatewaySmsResultReceiver.kt](/home/richard/APPS/SALVI/2026/fleebee-management/android-app/app/src/main/java/com/salvi/fleebeemanagement/sync/GatewaySmsResultReceiver.kt)
+- Updated the Android manual compose screen to use multipart sending too in:
+  - [ComposeMessageFragment.kt](/home/richard/APPS/SALVI/2026/fleebee-management/android-app/app/src/main/java/com/salvi/fleebeemanagement/ui/compose/ComposeMessageFragment.kt)
+- Built the updated debug APK successfully:
+  - `android-app/app/build/outputs/apk/debug/app-debug.apk`
+
+### Decisions made and why
+
+- Treated the Android gateway as the main suspect instead of the web batch UI because the backend records showed the jobs were queued and claimed correctly, then failed only when the phone reported the send result.
+- Added multipart SMS support because the failing workflow/template messages were long enough to exceed a single normal SMS segment after the signature was appended.
+- Improved the receiver logic so Android send `result code 0` is treated as a canceled request rather than an unknown code.
+
+### Current state
+
+- The code fix is implemented and the APK builds successfully.
+- The updated app is not yet installed on the live gateway phone because no ADB-visible device was connected from either the local machine or the home computer during this session.
+- One live data issue still exists independently of the multipart fix:
+  - `HAKORIMANA` has `078390524`, which appears too short to be a valid target number.
+
+### Next steps
+
+- Reconnect the gateway phone over ADB or USB so the updated APK can be installed.
+- Retest the same batch send after the gateway APK is updated.
+
+## 2026-07-21
+
+### What changed
+
+- Added live ADB visibility to the shared Phone Gateway card on both the overview and gateway pages.
+- Extended the backend dashboard payload to include an `adb` status object gathered from the home computer with a short cache to avoid probing ADB on every repaint.
+- Added backend config defaults for:
+  - `SMS_GATEWAY_ADB_COMMAND`
+  - `SMS_GATEWAY_ADB_SERIAL`
+  - `SMS_GATEWAY_ADB_TIMEOUT_MS`
+- Synced the updated frontend and backend files to the home computer over the public SSH endpoint `41.216.122.219:2222`.
+- Restarted the live `fleebee.service` after deployment.
+
+### Decisions made and why
+
+- Used a backend-side ADB probe instead of frontend polling logic so the browser can show one simple truthful status without needing direct machine access.
+- Defaulted the live probe to `/home/richard/bin/adb-home` with fallback to `adb` so the home computer keeps working with the existing helper setup.
+- Kept the UI to a single extra `ADB` row because the user asked for quick visibility, not a larger maintenance panel.
+
+### Current state
+
+- The live dashboard now includes an `ADB` row under Phone Gateway.
+- The live backend currently reports ADB as `Disconnected`.
+- This matches the earlier investigation result: Fleebee heartbeat and SMS gateway connectivity can still be online over Wi-Fi while USB/ADB remains detached.
+
+### Next steps
+
+- Refresh the overview or gateway page in the browser to see the new `ADB` line.
+- If USB debugging is reconnected later, the same card should switch from `Disconnected` to `Connected (...)` automatically on refresh.
+
+## 2026-07-21
+
+### What changed
+
+- Updated the dedicated [gateway.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/gateway.html) page to include the full `Bundle Check` panel in addition to `Server Health` and `Phone Gateway`.
+- Switched the gateway page layout to a two-column status view so the monitoring cards fill the page width better on desktop.
+- Added a small `.gateway-grid` CSS helper in [styles.css](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/css/styles.css) for equal-width gateway columns.
+- Synced the updated frontend files to the home computer over the public SSH endpoint.
+
+### Decisions made and why
+
+- Kept the gateway page focused on monitoring cards instead of adding unrelated workflow panels because the request was specifically about seeing the full phone/server/bundle status there.
+- Reused the same bundle markup and IDs as the overview page so the existing frontend render code continues to populate the values without extra JavaScript changes.
+
+### Current state
+
+- The live `Phone Gateway` page now has:
+  - `Server Health` in the left column
+  - `Phone Gateway` under it
+  - `Bundle Check` in the right column
+- Mobile still falls back to a single-column layout through the existing responsive CSS.
+
+### Next steps
+
+- Hard refresh the browser if the old narrower gateway layout is still cached.

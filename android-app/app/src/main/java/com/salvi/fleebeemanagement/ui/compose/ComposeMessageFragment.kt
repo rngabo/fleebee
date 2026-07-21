@@ -157,13 +157,25 @@ class ComposeMessageFragment : Fragment() {
 
         try {
             @Suppress("DEPRECATION")
-            SmsManager.getDefault().sendTextMessage(
-                FleetRepository.TEST_PHONE_NUMBER,
-                null,
-                message,
-                null,
-                null
-            )
+            val smsManager = SmsManager.getDefault()
+            val messageParts = smsManager.divideMessage(message)
+            if (messageParts.size <= 1) {
+                smsManager.sendTextMessage(
+                    FleetRepository.TEST_PHONE_NUMBER,
+                    null,
+                    message,
+                    null,
+                    null
+                )
+            } else {
+                smsManager.sendMultipartTextMessage(
+                    FleetRepository.TEST_PHONE_NUMBER,
+                    null,
+                    messageParts,
+                    null,
+                    null
+                )
+            }
             toast(
                 getString(
                     R.string.compose_send_success,

@@ -68,7 +68,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
               <path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/>
             </svg>
-            SMS &amp; Templates
+            Templates
           </a>
           <a class="side-sub-link" href="/scheduled.html" data-nav-view="scheduled-sms">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -147,7 +147,7 @@
       <div class="content">
         <p id="pageNotice" class="notice page-notice"></p>
 
-        <div class="home-grid">
+        <div class="home-grid gateway-grid">
           <div class="stack-col">
             <section class="panel">
               <div class="panel-head">
@@ -205,12 +205,55 @@
                   <dd id="phoneHeartbeatValue">-</dd>
                 </div>
                 <div>
+                  <dt>ADB</dt>
+                  <dd id="phoneAdbValue">-</dd>
+                </div>
+                <div>
                   <dt>Battery policy</dt>
                   <dd id="phoneBatteryValue">-</dd>
                 </div>
                 <div>
                   <dt>SMS route</dt>
                   <dd id="phoneRouteValue">-</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
+
+          <div class="stack-col">
+            <section class="panel anchor-section" id="bundles">
+              <div class="panel-head">
+                <div>
+                  <h2>Bundle Check</h2>
+                  <p class="mini-note">The phone runs <code>*131#</code> automatically and stores the latest USSD reply here.</p>
+                </div>
+              </div>
+              <dl class="status-list">
+                <div>
+                  <dt>Status</dt>
+                  <dd id="bundleStatusValue">-</dd>
+                </div>
+                <div>
+                  <dt>Last checked</dt>
+                  <dd id="bundleCheckedValue">-</dd>
+                </div>
+                <div>
+                  <dt>SMS bundle</dt>
+                  <dd id="bundleSmsValue">-</dd>
+                </div>
+                <div>
+                  <dt>Data bundle</dt>
+                  <dd id="bundleDataValue">-</dd>
+                </div>
+                <div id="bundleDetailsActionRow">
+                  <dt>More details</dt>
+                  <dd class="bundle-detail-actions">
+                    <button id="bundleDetailsToggle" class="ghost-button compact-button" type="button">View full message</button>
+                  </dd>
+                </div>
+                <div id="bundleDetailsRow" class="hidden">
+                  <dt>Full USSD</dt>
+                  <dd id="bundleDetailsValue" class="status-pre">-</dd>
                 </div>
               </dl>
             </section>

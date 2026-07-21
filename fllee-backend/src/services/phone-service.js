@@ -1,7 +1,15 @@
+const { execFile } = require("node:child_process");
+const { promisify } = require("node:util");
 const { env } = require("../config/env");
 const { buildDefaultPhoneState } = require("../data/defaults");
 const { prisma } = require("../lib/prisma");
 const { getSmsGatewayMode } = require("./setting-service");
+
+const execFileAsync = promisify(execFile);
+const ADB_CACHE_MS = 10000;
+let cachedAdbStatus = null;
+let cachedAdbStatusAt = 0;
+let adbProbePromise = null;
 
 function isPhoneOnline(phone) {
   return Date.now() - phone.lastHeartbeatAt.getTime() <= env.PHONE_HEARTBEAT_STALE_MS;
@@ -137,6 +145,187 @@ function serializePhone(phone) {
   };
 }
 
+function adbStatusLabel(status, serial, totalDevices) {
+  if (status === "connected") {
+    if (serial) {
+      return `Connected (${serial})`;
+    }
+    if (totalDevices > 1) {
+      return `Connected (${totalDevices} devices)`;
+    }
+    return "Connected";
+  }
+
+  if (status === "unauthorized") {
+    return serial ? `Unauthorized (${serial})` : "Unauthorized";
+  }
+
+  if (status === "offline") {
+    return serial ? `Offline (${serial})` : "Offline";
+  }
+
+  if (status === "disconnected") {
+    return "Disconnected";
+  }
+
+  return "Unavailable";
+}
+
+function parseAdbDevices(stdout) {
+  return String(stdout || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("List of devices attached"))
+    .map((line) => {
+      const [serial = "", state = ""] = line.split(/\s+/, 3);
+      return {
+        serial,
+        state
+      };
+    })
+    .filter((item) => item.serial);
+}
+
+function serializeAdbStatus(status, serial, totalDevices, detail = "") {
+  return {
+    status,
+    connected: status === "connected",
+    serial,
+    totalDevices,
+    label: adbStatusLabel(status, serial, totalDevices),
+    detail
+  };
+}
+
+function chooseAdbDevice(devices) {
+  if (!devices.length) {
+    return null;
+  }
+
+  const preferredSerial = String(env.SMS_GATEWAY_ADB_SERIAL || "").trim();
+  if (preferredSerial) {
+    const exactMatch = devices.find((device) => device.serial === preferredSerial);
+    if (exactMatch) {
+      return exactMatch;
+    }
+  }
+
+  return devices.find((device) => device.state === "device") || devices[0];
+}
+
+function summarizeAdbProbe(stdout) {
+  const devices = parseAdbDevices(stdout);
+  if (!devices.length) {
+    return serializeAdbStatus("disconnected", "", 0, "No Android device is visible through ADB.");
+  }
+
+  const selected = chooseAdbDevice(devices);
+  if (!selected) {
+    return serializeAdbStatus("disconnected", "", 0, "No Android device is visible through ADB.");
+  }
+
+  const normalizedState = String(selected.state || "").trim().toLowerCase();
+  if (normalizedState === "device") {
+    return serializeAdbStatus(
+      "connected",
+      selected.serial,
+      devices.length,
+      "USB debugging is ready on the home computer."
+    );
+  }
+
+  if (normalizedState === "unauthorized") {
+    return serializeAdbStatus(
+      "unauthorized",
+      selected.serial,
+      devices.length,
+      "Allow the USB debugging prompt on the phone to restore ADB access."
+    );
+  }
+
+  if (normalizedState === "offline") {
+    return serializeAdbStatus(
+      "offline",
+      selected.serial,
+      devices.length,
+      "ADB can see the phone, but the transport is offline."
+    );
+  }
+
+  return serializeAdbStatus(
+    "unavailable",
+    selected.serial,
+    devices.length,
+    `ADB reported "${normalizedState || "unknown"}" for the phone.`
+  );
+}
+
+async function runAdbCommand(command) {
+  return execFileAsync(command, ["devices", "-l"], {
+    timeout: env.SMS_GATEWAY_ADB_TIMEOUT_MS,
+    windowsHide: true
+  });
+}
+
+async function probeAdbStatus() {
+  const candidates = [...new Set([env.SMS_GATEWAY_ADB_COMMAND, "adb"].filter(Boolean))];
+
+  for (const command of candidates) {
+    try {
+      const { stdout } = await runAdbCommand(command);
+      return summarizeAdbProbe(stdout);
+    } catch (error) {
+      if (error && error.code === "ENOENT") {
+        continue;
+      }
+
+      if (error && error.killed) {
+        return serializeAdbStatus(
+          "unavailable",
+          "",
+          0,
+          `ADB status timed out after ${env.SMS_GATEWAY_ADB_TIMEOUT_MS}ms.`
+        );
+      }
+
+      const message = String(error?.stderr || error?.message || "").trim();
+      return serializeAdbStatus(
+        "unavailable",
+        "",
+        0,
+        message || "The backend could not read ADB status from the home computer."
+      );
+    }
+  }
+
+  return serializeAdbStatus(
+    "unavailable",
+    "",
+    0,
+    "ADB is not installed or its helper command is missing on the home computer."
+  );
+}
+
+async function getAdbStatus() {
+  if (cachedAdbStatus && Date.now() - cachedAdbStatusAt < ADB_CACHE_MS) {
+    return cachedAdbStatus;
+  }
+
+  if (!adbProbePromise) {
+    adbProbePromise = probeAdbStatus()
+      .then((status) => {
+        cachedAdbStatus = status;
+        cachedAdbStatusAt = Date.now();
+        return status;
+      })
+      .finally(() => {
+        adbProbePromise = null;
+      });
+  }
+
+  return adbProbePromise;
+}
+
 async function getPhoneState() {
   const config = await buildPhoneConfigData();
   return prisma.phoneState.upsert({
@@ -252,6 +441,7 @@ async function updateBundleCheck(payload = {}) {
 }
 
 module.exports = {
+  getAdbStatus,
   buildBundleCheckDirective,
   getPhoneState,
   isPhoneOnline,
