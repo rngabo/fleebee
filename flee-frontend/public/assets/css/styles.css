@@ -1438,9 +1438,19 @@ a {
   width: min(560px, calc(100vw - 24px));
 }
 
+.password-modal {
+  width: min(420px, calc(100vw - 24px));
+}
+
 .field-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.compose-meta-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
 }
 

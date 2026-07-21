@@ -228,7 +228,7 @@
         <h2 id="composeTitle">New SMS</h2>
         <button class="ghost-button" type="button" data-close-modal="compose">Cancel</button>
       </div>
-      <p id="composeNote" class="modal-copy">Send now, or schedule it for later.</p>
+      <p id="composeNote" class="modal-copy hidden"></p>
       <form id="composeForm" class="stack">
         <div class="field hidden" id="composeTargetTabsField">
           <span>Recipient source</span>
@@ -269,19 +269,29 @@
         </label>
 
         <div class="field hidden" id="composeBodyModeField">
-          <span>Message body</span>
+          <span>Source</span>
           <div class="category-row" id="composeBodyModeRow">
-            <button type="button" class="category-pill active" data-body-mode="custom">Custom message</button>
-            <button type="button" class="category-pill" data-body-mode="template">Presaved template</button>
+            <button type="button" class="category-pill active" data-body-mode="custom">Custom</button>
+            <button type="button" class="category-pill" data-body-mode="template">Template</button>
           </div>
         </div>
 
-        <div class="field">
-          <span>Message type</span>
-          <div class="category-row" id="composeCategoryRow">
-            <button type="button" class="category-pill active" data-category="REMINDER">Reminder</button>
-            <button type="button" class="category-pill" data-category="GENERAL">General</button>
-            <button type="button" class="category-pill" data-category="EMERGENCY">Emergency</button>
+        <div class="compose-meta-row">
+          <div class="field" id="composeCategoryField">
+            <span>Type</span>
+            <select id="composeCategorySelect">
+              <option value="REMINDER">Reminder</option>
+              <option value="GENERAL">General</option>
+              <option value="EMERGENCY">Emergency</option>
+            </select>
+          </div>
+
+          <div class="field" id="composeWhenField">
+            <span>Send</span>
+            <div class="category-row" id="composeWhenRow">
+              <button type="button" class="category-pill active" data-when="now">Now</button>
+              <button type="button" class="category-pill" data-when="later">Schedule</button>
+            </div>
           </div>
         </div>
 
@@ -291,24 +301,16 @@
           <p id="composeTemplateMeta" class="field-hint"></p>
         </div>
 
-        <label class="field preview-frame hidden" id="composeTemplatePreviewField">
-          <span id="composeTemplatePreviewLabel">Final SMS text</span>
-          <textarea id="composeTemplatePreview" rows="5" readonly></textarea>
-          <small id="composePreviewModeHint" class="preview-mode-hint preview-mode-active">Real mode</small>
-        </label>
-
         <label class="field" id="composeMessageField">
-          <span>Message</span>
+          <span>Write message</span>
           <textarea id="composeMessage" rows="4" placeholder="Write the SMS here"></textarea>
         </label>
 
-        <div class="field" id="composeWhenField">
-          <span>When to send</span>
-          <div class="category-row" id="composeWhenRow">
-            <button type="button" class="category-pill active" data-when="now">Send now</button>
-            <button type="button" class="category-pill" data-when="later">Schedule</button>
-          </div>
-        </div>
+        <label class="field preview-frame hidden" id="composeTemplatePreviewField">
+          <span id="composeTemplatePreviewLabel">Preview</span>
+          <textarea id="composeTemplatePreview" rows="4" readonly></textarea>
+          <small id="composePreviewModeHint" class="preview-mode-hint preview-mode-active hidden"></small>
+        </label>
 
         <div id="composeScheduleRow" class="field-row hidden">
           <label class="field">
@@ -326,16 +328,33 @@
           </label>
         </div>
 
-        <div id="composePasswordRow" class="field">
-          <span>SMS send password</span>
-          <input id="composePassword" type="password" placeholder="Last step before queueing the SMS" autocomplete="current-password">
-        </div>
-
         <p id="composeNotice" class="notice"></p>
         <div class="action-row modal-action-row">
           <button id="composeSubmit" type="submit" class="primary-button">Send SMS</button>
           <button type="button" class="ghost-button" data-close-modal="compose">Cancel</button>
           <div id="composeRouteStatus" class="mode-status-pill mode-live" aria-live="polite">Real mode</div>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="sendPasswordModal" class="modal-shell hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="send-password"></div>
+    <section class="modal-card password-modal" role="dialog" aria-modal="true" aria-labelledby="sendPasswordTitle">
+      <div class="modal-head">
+        <h2 id="sendPasswordTitle">Confirm Send</h2>
+        <button class="ghost-button" type="button" data-close-modal="send-password">Cancel</button>
+      </div>
+      <p id="sendPasswordCopy" class="modal-copy">Enter SMS send password to queue this message.</p>
+      <form id="sendPasswordForm" class="stack">
+        <label class="field">
+          <span>Send password</span>
+          <input id="sendPasswordInput" type="password" placeholder="SMS send password" autocomplete="current-password">
+        </label>
+        <p id="sendPasswordNotice" class="notice"></p>
+        <div class="action-row modal-action-row">
+          <button id="sendPasswordSubmit" type="submit" class="primary-button">Send SMS</button>
+          <button type="button" class="ghost-button" data-close-modal="send-password">Cancel</button>
         </div>
       </form>
     </section>

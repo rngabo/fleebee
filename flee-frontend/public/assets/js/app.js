@@ -115,7 +115,7 @@ const state = {
   composeTargetId: "",
   composeTargetMode: "current",
   composeBatchId: "",
-  composeBodyMode: "custom",
+  composeBodyMode: "template",
   composeTemplateId: "",
   composeCategory: "REMINDER",
   composeWhen: "now",
@@ -309,8 +309,8 @@ const composeBatchRecipientCount = $("composeBatchRecipientCount");
 const composeBatchRecipientList = $("composeBatchRecipientList");
 const composeBodyModeField = $("composeBodyModeField");
 const composeBodyModeRow = $("composeBodyModeRow");
-const composeCategoryRow = $("composeCategoryRow");
-const composeCategoryField = composeCategoryRow?.closest(".field") || null;
+const composeCategoryField = $("composeCategoryField");
+const composeCategorySelect = $("composeCategorySelect");
 const composeTemplateField = $("composeTemplateField");
 const composeTemplateSelect = $("composeTemplateSelect");
 const composeTemplateMeta = $("composeTemplateMeta");
@@ -325,15 +325,20 @@ const composeWhenRow = $("composeWhenRow");
 const composeScheduleRow = $("composeScheduleRow");
 const composeSendAt = $("composeSendAt");
 const composeRepeat = $("composeRepeat");
-const composePasswordRow = $("composePasswordRow");
-const composePassword = $("composePassword");
 const composeNotice = $("composeNotice");
 const composeSubmit = $("composeSubmit");
 const composeRouteStatus = $("composeRouteStatus");
+const sendPasswordModal = $("sendPasswordModal");
+const sendPasswordForm = $("sendPasswordForm");
+const sendPasswordCopy = $("sendPasswordCopy");
+const sendPasswordInput = $("sendPasswordInput");
+const sendPasswordNotice = $("sendPasswordNotice");
+const sendPasswordSubmit = $("sendPasswordSubmit");
 
 let sessionExpiryTimer = 0;
 let lastSessionTouchAt = 0;
 let sessionTouchInFlight = null;
+let pendingSendPasswordResolver = null;
 
 /* ---------- Utilities ---------- */
 
@@ -752,7 +757,7 @@ function noteUserActivity({ force = false } = {}) {
 /* ---------- Modals ---------- */
 
 function syncBodyModalState() {
-  const anyOpen = [composeModal, bikerDetailModal].some(
+  const anyOpen = [composeModal, bikerDetailModal, sendPasswordModal].some(
     (modal) => modal && !modal.classList.contains("hidden")
   );
   document.body.classList.toggle("modal-open", anyOpen);
@@ -776,6 +781,51 @@ function closeModal(element) {
   element.classList.add("hidden");
   element.setAttribute("aria-hidden", "true");
   syncBodyModalState();
+}
+
+function resolveSendPasswordPrompt(result = null) {
+  const resolver = pendingSendPasswordResolver;
+  pendingSendPasswordResolver = null;
+
+  if (sendPasswordInput) {
+    sendPasswordInput.value = "";
+  }
+  setNotice(sendPasswordNotice, "");
+  closeModal(sendPasswordModal);
+
+  if (resolver) {
+    resolver(result);
+  }
+}
+
+function requestSendPassword({ messageCount = 1 } = {}) {
+  if (!sendPasswordModal || !sendPasswordInput) {
+    return Promise.resolve(null);
+  }
+
+  if (pendingSendPasswordResolver) {
+    resolveSendPasswordPrompt(null);
+  }
+
+  if (sendPasswordCopy) {
+    sendPasswordCopy.textContent = messageCount === 1
+      ? "Enter SMS send password to queue this message."
+      : `Enter SMS send password to queue ${messageCount} messages.`;
+  }
+  if (sendPasswordSubmit) {
+    sendPasswordSubmit.textContent = messageCount === 1 ? "Send SMS" : `Send ${messageCount} SMS`;
+  }
+
+  setNotice(sendPasswordNotice, "");
+  sendPasswordInput.value = "";
+  openModal(sendPasswordModal);
+  window.setTimeout(() => {
+    sendPasswordInput.focus();
+  }, 0);
+
+  return new Promise((resolve) => {
+    pendingSendPasswordResolver = resolve;
+  });
 }
 
 /* ---------- Data loading ---------- */
@@ -2365,19 +2415,6 @@ function buildDeliveryBody(body, signature) {
   return messageSignature ? `${messageBody}\n\n${messageSignature}` : messageBody;
 }
 
-function buildComposeRouteNote() {
-  if (isTestingGatewayMode()) {
-    const targetNumber = state.smsSettings.gatewayTargetNumber || "the test number";
-    const sampleRecipient = composeDispatchRecipients()[0] || null;
-    const sampleNote = sampleRecipient
-      ? ` The first selected biker, ${sampleRecipient.name}, will be used for this test SMS.`
-      : "";
-    return `Testing mode is active. Only 1 SMS will be queued to ${targetNumber}.${sampleNote}`;
-  }
-
-  return "Real mode is on. SMS will route to the selected active bikers.";
-}
-
 function renderComposeRouteStatus() {
   if (!composeRouteStatus) {
     return;
@@ -2402,27 +2439,13 @@ function renderComposePreviewModeState(sampleRecipient, { templateMode = false }
   }
 
   const testingMode = isTestingGatewayMode();
-  const targetNumber = state.smsSettings.gatewayTargetNumber || "the test number";
 
   composeTemplatePreviewField.classList.remove("preview-frame-active", "preview-frame-testing");
   composePreviewModeHint.classList.remove("preview-mode-active", "preview-mode-testing");
   composeTemplatePreviewField.classList.add(testingMode ? "preview-frame-testing" : "preview-frame-active");
   composePreviewModeHint.classList.add(testingMode ? "preview-mode-testing" : "preview-mode-active");
-
-  if (templateMode) {
-    composePreviewModeHint.textContent = testingMode
-      ? sampleRecipient
-        ? `Testing mode • Red frame • Sample preview uses ${sampleRecipient.name}. The saved template stays unchanged. Only 1 SMS will be queued to ${targetNumber}.`
-        : `Testing mode • Red frame • Sample preview only. The saved template stays unchanged. Only 1 SMS will be queued to ${targetNumber}.`
-      : sampleRecipient
-        ? `Real mode • Green frame • Sample preview uses ${sampleRecipient.name}. The saved template stays unchanged. Each biker gets personalized values when queued.`
-        : "Real mode • Green frame • Sample preview only. The saved template stays unchanged. Each biker gets personalized values when queued.";
-    return;
-  }
-
-  composePreviewModeHint.textContent = testingMode
-    ? `Testing mode • Red frame • Only 1 SMS will be queued to ${targetNumber}.`
-    : "Real mode • Green frame • Selected bikers receive this final message text.";
+  composePreviewModeHint.textContent = "";
+  composePreviewModeHint.classList.add("hidden");
 }
 
 function renderComposeTargetTabs() {
@@ -2446,13 +2469,11 @@ function renderComposeBodyModes() {
 }
 
 function renderComposeCategories() {
-  if (!composeCategoryRow) {
+  if (!composeCategorySelect) {
     return;
   }
 
-  [...composeCategoryRow.querySelectorAll(".category-pill")].forEach((pill) => {
-    pill.classList.toggle("active", pill.dataset.category === state.composeCategory);
-  });
+  composeCategorySelect.value = state.composeCategory;
 }
 
 function ensureComposeBatchSelection() {
@@ -2573,17 +2594,25 @@ function renderComposeTemplatePreview() {
   }
 
   const sampleRecipient = composeSelectedRecipients()[0] || activeBikers()[0] || null;
-  if (composeTemplatePreviewLabel) {
-    composeTemplatePreviewLabel.textContent = state.composeMode === "new" && state.composeBodyMode === "template" && sampleRecipient
-      ? `Sample final SMS for ${sampleRecipient.name}`
-      : "Final SMS text";
+  const templateMode = state.composeMode === "new" && state.composeBodyMode === "template";
+  const body = composeMessage?.value.trim() || "";
+  const showPreview = templateMode || Boolean(body) || state.composeMode !== "new";
+
+  if (composeTemplatePreviewField) {
+    composeTemplatePreviewField.classList.toggle("hidden", !showPreview);
   }
 
-  if (state.composeMode === "new" && state.composeBodyMode === "template") {
+  if (composeTemplatePreviewLabel) {
+    composeTemplatePreviewLabel.textContent = templateMode && sampleRecipient
+      ? `Preview for ${sampleRecipient.name}`
+      : "Preview";
+  }
+
+  if (templateMode) {
     const template = composeSelectedTemplate();
     if (!template) {
       composeTemplatePreview.value = "";
-      composeTemplateMeta.textContent = "Choose an active template first.";
+      composeTemplateMeta.textContent = "Choose a saved template.";
       renderComposePreviewModeState(sampleRecipient, { templateMode: true });
       return;
     }
@@ -2594,48 +2623,41 @@ function renderComposeTemplatePreview() {
     const finalBody = buildDeliveryBody(previewBody, state.smsSettings.signature);
     composeTemplatePreview.value = finalBody;
     renderComposePreviewModeState(sampleRecipient, { templateMode: true });
-    if (isTestingGatewayMode()) {
-      composeTemplateMeta.textContent = sampleRecipient
-        ? `${titleCaseFromSlug(template.category)} • ${titleCaseFromSlug(template.urgency)} • Sample preview uses ${sampleRecipient.name}. The saved template stays unchanged.`
-        : `${titleCaseFromSlug(template.category)} • ${titleCaseFromSlug(template.urgency)} • Sample preview only. The saved template stays unchanged.`;
-      return;
-    }
-
     composeTemplateMeta.textContent = sampleRecipient
-      ? `${titleCaseFromSlug(template.category)} • ${titleCaseFromSlug(template.urgency)} • Sample preview uses ${sampleRecipient.name}. The saved template stays unchanged.`
-      : `${titleCaseFromSlug(template.category)} • ${titleCaseFromSlug(template.urgency)} • Sample preview only. The saved template stays unchanged.`;
+      ? `Preview only. ${sampleRecipient.name}'s details are shown here.`
+      : "Preview only. Saved template stays unchanged.";
     return;
   }
 
-  const body = composeMessage?.value.trim() || "";
   const signature = String(state.smsSettings.signature || "").trim();
   composeTemplatePreview.value = buildDeliveryBody(body, signature);
   renderComposePreviewModeState(sampleRecipient, { templateMode: false });
 
   if (!body) {
-    composeTemplateMeta.textContent = "Write the message body above to preview the final SMS text.";
+    composeTemplateMeta.textContent = "";
     return;
   }
 
   if (state.composeMode === "new") {
     if (isTestingGatewayMode()) {
-      composeTemplateMeta.textContent = composeDispatchRecipients().length
-        ? `Testing mode will queue only 1 SMS to ${state.smsSettings.gatewayTargetNumber || "the test number"} using this final preview text.`
-        : `Select at least one recipient first. Testing mode will still queue only 1 SMS to ${state.smsSettings.gatewayTargetNumber || "the test number"}.`;
+      composeTemplateMeta.textContent = `1 SMS will be queued to ${state.smsSettings.gatewayTargetNumber || "the test number"}.`;
       return;
     }
 
     composeTemplateMeta.textContent = composeSelectedRecipients().length
-      ? "Selected recipients will receive this exact final SMS text."
-      : "Select at least one recipient to queue this SMS.";
+      ? "Selected bikers receive this preview text."
+      : "Select at least one biker.";
     return;
   }
 
-  composeTemplateMeta.textContent = "This is the final SMS text that will be queued.";
+  composeTemplateMeta.textContent = "This preview includes the signature.";
 }
 
 function renderComposeBodyState() {
   const isNew = state.composeMode === "new";
+  if (isNew && state.composeBodyMode === "template" && activeTemplates().length === 0) {
+    state.composeBodyMode = "custom";
+  }
   const templateMode = isNew && state.composeBodyMode === "template";
 
   if (composeTargetTabsField) {
@@ -2656,14 +2678,11 @@ function renderComposeBodyState() {
   if (composeCategoryField) {
     composeCategoryField.classList.toggle("hidden", templateMode);
   }
-  if (composeTemplateField) {
-    composeTemplateField.classList.toggle("hidden", !templateMode);
-  }
-  if (composeTemplatePreviewField) {
-    composeTemplatePreviewField.classList.remove("hidden");
-  }
   if (composeMessageField) {
     composeMessageField.classList.toggle("hidden", templateMode);
+  }
+  if (composeTemplateField) {
+    composeTemplateField.classList.toggle("hidden", !templateMode);
   }
 
   renderComposeTargetTabs();
@@ -2673,11 +2692,8 @@ function renderComposeBodyState() {
   renderComposeTemplatePreview();
   renderComposeRouteStatus();
 
-  if (isNew && composeNote) {
-    const templateNote = templateMode
-      ? "Saved templates fill biker details like first name and plate automatically."
-      : "Write a custom SMS body or switch to a saved template.";
-    composeNote.textContent = `${templateNote} ${buildComposeRouteNote()}`;
+  if (composeNote) {
+    composeNote.classList.toggle("hidden", isNew || !composeNote.textContent.trim());
   }
 }
 
@@ -2691,11 +2707,6 @@ function renderComposeWhen() {
   const scheduling = state.composeWhen === "later" || state.composeMode === "edit-schedule";
   if (composeScheduleRow) {
     composeScheduleRow.classList.toggle("hidden", !scheduling);
-  }
-
-  const needsPassword = state.composeMode === "new" && state.composeWhen === "now";
-  if (composePasswordRow) {
-    composePasswordRow.classList.toggle("hidden", !needsPassword);
   }
 
   if (composeSubmit) {
@@ -2800,8 +2811,10 @@ function applyComposeSuggestion(force = false) {
   const suggested = suggestionFor(state.composeCategory, bikerName);
   const current = composeMessage.value.trim();
 
-  if (force || !current || current === state.lastSuggestion) {
+  if ((force && current && current === state.lastSuggestion) || (current && current === state.lastSuggestion)) {
     composeMessage.value = suggested;
+    state.lastSuggestion = suggested;
+  } else if (!current) {
     state.lastSuggestion = suggested;
   }
 
@@ -2826,23 +2839,30 @@ function openCompose(mode = "new", target = null) {
     state.composeCategory = target.category;
     state.composeWhen = "now";
     if (composeTitle) composeTitle.textContent = "Edit Pending SMS";
-    if (composeNote) composeNote.textContent = "Saving restarts the 2-minute wait before the phone sends it.";
+    if (composeNote) {
+      composeNote.textContent = "Saving restarts the 2-minute wait before the phone sends it.";
+      composeNote.classList.remove("hidden");
+    }
     syncComposeBikerOptions(target.bikerId);
     if (composeMessage) composeMessage.value = messageEditorBody(target);
   } else if (mode === "edit-schedule") {
     state.composeCategory = target.category;
     state.composeWhen = "later";
     if (composeTitle) composeTitle.textContent = "Edit Scheduled Send";
-    if (composeNote) composeNote.textContent = "Change the timing or message, then save.";
+    if (composeNote) {
+      composeNote.textContent = "Change the timing or message, then save.";
+      composeNote.classList.remove("hidden");
+    }
     syncComposeBikerOptions(target.bikerId);
     if (composeMessage) composeMessage.value = target.body;
     if (composeSendAt) composeSendAt.value = formatDateTimeInputValue(target.sendAt);
     if (composeRepeat) composeRepeat.value = String(target.recurrence || "ONCE").toUpperCase();
   } else {
+    const defaultTemplateId = activeTemplates()[0]?.id || "";
     state.composeTargetMode = "current";
-    state.composeBodyMode = "custom";
-    state.composeTemplateId = activeTemplates()[0]?.id || "";
-    state.composeCategory = "REMINDER";
+    state.composeBodyMode = defaultTemplateId ? "template" : "custom";
+    state.composeTemplateId = defaultTemplateId;
+    state.composeCategory = "GENERAL";
     state.composeWhen = "now";
     state.composeRecipients.clear();
     ensureComposeBatchSelection();
@@ -2851,6 +2871,10 @@ function openCompose(mode = "new", target = null) {
     }
     state.lastSuggestion = "";
     if (composeTitle) composeTitle.textContent = "New SMS";
+    if (composeNote) {
+      composeNote.textContent = "";
+      composeNote.classList.add("hidden");
+    }
     renderComposeRecipients();
     renderComposeBatchOptions();
     renderComposeBatchRecipients();
@@ -2860,12 +2884,11 @@ function openCompose(mode = "new", target = null) {
       composeSendAt.value = formatDateTimeInputValue(nextHour);
     }
     if (composeRepeat) composeRepeat.value = "ONCE";
-    applyComposeSuggestion(true);
+    if (composeMessage) {
+      composeMessage.value = "";
+    }
   }
 
-  if (composePassword) {
-    composePassword.value = "";
-  }
   renderComposeBodyState();
   renderComposeWhen();
   openModal(composeModal);
@@ -3041,13 +3064,8 @@ async function submitCompose() {
     return;
   }
 
-  const password = composePassword?.value || "";
+  const password = await requestSendPassword({ messageCount: dispatchRecipients.length });
   if (!password) {
-    setNotice(composeNotice, "Enter the SMS send password to continue.", "error");
-    if (composePasswordRow) {
-      composePasswordRow.classList.remove("hidden");
-    }
-    composePassword?.focus();
     return;
   }
 
@@ -3096,11 +3114,6 @@ async function submitCompose() {
         : "Wrong SMS send password.",
       "error"
     );
-    if (composePasswordRow) {
-      composePasswordRow.classList.remove("hidden");
-    }
-    composePassword?.focus();
-    composePassword?.select();
     return;
   }
 
@@ -3862,14 +3875,23 @@ if (composeForm) {
   });
 }
 
-if (composeCategoryRow) {
-  composeCategoryRow.addEventListener("click", (event) => {
-    const pill = event.target.closest(".category-pill");
-    if (!pill) {
+if (sendPasswordForm) {
+  sendPasswordForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const password = sendPasswordInput?.value || "";
+    if (!password) {
+      setNotice(sendPasswordNotice, "Enter the SMS send password to continue.", "error");
+      sendPasswordInput?.focus();
       return;
     }
 
-    state.composeCategory = pill.dataset.category;
+    resolveSendPasswordPrompt(password);
+  });
+}
+
+if (composeCategorySelect) {
+  composeCategorySelect.addEventListener("change", () => {
+    state.composeCategory = composeCategorySelect.value || "GENERAL";
     renderComposeCategories();
     applyComposeSuggestion();
   });
@@ -4006,6 +4028,8 @@ document.addEventListener("click", (event) => {
 
   if (closer.dataset.closeModal === "compose") {
     closeModal(composeModal);
+  } else if (closer.dataset.closeModal === "send-password") {
+    resolveSendPasswordPrompt(null);
   } else if (closer.dataset.closeModal === "biker-detail") {
     closeModal(bikerDetailModal);
   }
@@ -4016,6 +4040,10 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (sendPasswordModal && !sendPasswordModal.classList.contains("hidden")) {
+    resolveSendPasswordPrompt(null);
+    return;
+  }
   if (composeModal && !composeModal.classList.contains("hidden")) {
     closeModal(composeModal);
   }

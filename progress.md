@@ -1067,3 +1067,149 @@ The big recent wins were bundle automation, persistent ADB recovery on `.50`, ni
 ### Next steps
 
 - Hard refresh the browser if the old narrower gateway layout is still cached.
+
+## 2026-07-21
+
+### What changed
+
+- Simplified the shared SMS compose modal across:
+  - [index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/index.html)
+  - [messages.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/messages.html)
+  - [scheduled.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/scheduled.html)
+  - [sms/index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/sms/index.html)
+- Replaced the large `Message type` button group with a smaller `Type` dropdown.
+- Moved `Send` beside `Type` in one compact row.
+- Shortened labels:
+  - `Message body` -> `Source`
+  - `Custom message` -> `Custom`
+  - `Presaved template` -> `Template`
+  - `Message` -> `Write message`
+  - `Final SMS text` -> `Preview`
+  - `SMS send password` -> `Send password`
+- Changed the custom-message flow so it opens blank instead of pre-filling a reminder and showing the same content twice.
+- Made the preview box stay hidden for custom messages until there is actual text to preview.
+- Updated the shared compose logic in [app.js](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/js/app.js) and added a responsive `.compose-meta-row` helper in [styles.css](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/css/styles.css).
+- Synced the updated frontend files to the home computer over the public SSH endpoint and verified the live files.
+
+### Decisions made and why
+
+- Kept template/custom switching, preview, scheduling, and test/real safeguards because those are operationally important.
+- Removed noise mainly by cutting duplication, shortening copy, and hiding preview until it becomes useful.
+- Switched the category control to a dropdown because the old three large pills consumed too much space for a secondary setting.
+
+### Current state
+
+- The live compose modal is now more compact and opens with less clutter.
+- Custom SMS starts blank.
+- Template SMS still shows a live personalized preview.
+- The real/testing mode indicator remains in place.
+
+### Next steps
+
+- Hard refresh the browser if the old compose modal is still cached.
+
+## 2026-07-21
+
+### What changed
+
+- Changed the shared compose modal logic in [app.js](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/js/app.js) so `New SMS` opens with `Template` selected by default.
+- Added a safe fallback so the modal automatically reverts to `Custom` only when there are no active templates available.
+- Synced the updated frontend JS to the home computer and verified the live file.
+
+### Decisions made and why
+
+- Defaulted to `Template` because that now matches the operator’s main SMS workflow.
+- Kept the no-template fallback to avoid opening the modal in a dead-end template state.
+
+### Current state
+
+- On the live system, `New SMS` now opens in `Template` mode first.
+- If all templates are inactive or missing, the modal will still open in `Custom`.
+
+### Next steps
+
+- Hard refresh the browser if it still opens with `Custom` from cache.
+
+## 2026-07-21
+
+### What changed
+
+- Removed the long preview-helper sentence from the shared SMS compose modal preview area.
+- Updated [app.js](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/js/app.js) so the preview helper text is blank and hidden while the colored preview frame still updates for real/testing mode.
+- Updated the shared compose modal markup in:
+  - [index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/index.html)
+  - [messages.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/messages.html)
+  - [scheduled.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/scheduled.html)
+  - [sms/index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/sms/index.html)
+  so the helper element starts hidden.
+- Synced the updated frontend files to the home computer and verified the deployed files.
+
+### Decisions made and why
+
+- Kept the mode signal through the green/red preview frame and the bottom mode pill because the user only asked to remove the long text, not the safety indication itself.
+
+### Current state
+
+- The preview no longer shows the long `Real mode • Green frame ...` sentence on the live system.
+
+### Next steps
+
+- Hard refresh the browser if the old text is still cached in the current tab.
+
+## 2026-07-21
+
+### What changed
+
+- Removed the inline `Send password` field from the shared SMS compose modal on:
+  - [index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/index.html)
+  - [messages.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/messages.html)
+  - [scheduled.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/scheduled.html)
+  - [sms/index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/sms/index.html)
+- Added a separate `Confirm Send` password prompt modal that opens only when the operator clicks `Send SMS` for an immediate send.
+- Updated the shared frontend logic in [app.js](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/js/app.js) so:
+  - immediate sends request the password in the new prompt
+  - schedules still save without the send-password prompt
+  - empty prompt input shows an inline error in the password modal
+  - `Cancel`, backdrop click, and `Escape` close the password prompt cleanly
+- Added a small `.password-modal` width helper in [styles.css](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/css/styles.css).
+- Synced the updated frontend files to the home computer and verified the deployed files.
+
+### Decisions made and why
+
+- Kept password entry as a dedicated final confirmation step because the user wanted less clutter in the compose form while still protecting live sends.
+- Limited the prompt to direct sends only, since scheduled messages are not sent immediately from the browser.
+
+### Current state
+
+- The live compose modal no longer shows the password field inline.
+- Clicking `Send SMS` now opens a separate password prompt before queueing the SMS.
+
+### Next steps
+
+- Hard refresh the browser if the old inline password field is still cached in the current tab.
+
+## 2026-07-21
+
+### What changed
+
+- Removed the top helper note from the `New SMS` compose modal across the shared frontend pages:
+  - [index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/index.html)
+  - [messages.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/messages.html)
+  - [scheduled.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/scheduled.html)
+  - [sms/index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/sms/index.html)
+- Updated the shared compose rendering in [app.js](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/js/app.js) so:
+  - `New SMS` hides the note entirely
+  - edit flows still show their specific guidance text
+- Synced the updated frontend files to the home computer and verified the deployed files.
+
+### Decisions made and why
+
+- Hid the note only for `New SMS` because that was the noisy text the user wanted removed, while keeping edit-specific warnings helpful.
+
+### Current state
+
+- The live `New SMS` modal no longer shows the `Saved templates fill... Real mode...` sentence at the top.
+
+### Next steps
+
+- Hard refresh the browser if that old top note is still cached in the current tab.
