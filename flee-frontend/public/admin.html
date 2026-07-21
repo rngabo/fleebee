@@ -18,7 +18,7 @@
         </span>
         <span class="brand-text">
           <strong id="appNameLabel">Fleebee Dispatch Desk</strong>
-          <span>SMS Dispatch Console</span>
+          <span>Workflow &amp; SMS Console</span>
         </span>
       </div>
 
@@ -33,13 +33,42 @@
           Overview
         </a>
 
+        <div class="side-group-label">Workflow</div>
+        <div class="side-subnav">
+          <a class="side-sub-link" href="/settings/index.html" data-nav-view="recipients">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="9" cy="9" r="3"/>
+              <circle cx="17" cy="10" r="2.5"/>
+              <path d="M4.5 19c.8-2.6 3-4 5.5-4s4.7 1.4 5.5 4"/>
+              <path d="M14.5 18c.45-1.65 1.7-2.7 3.5-3"/>
+            </svg>
+            Recipients
+          </a>
+          <a class="side-sub-link" href="/bikes.html" data-nav-view="bikes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 17h1.6M17.4 17H19M7 17l2-6h6l2 6M7.5 11 9 7.5h6L16.5 11"/>
+              <circle cx="7" cy="17" r="2"/>
+              <circle cx="17" cy="17" r="2"/>
+            </svg>
+            Bike Workflow
+          </a>
+          <a class="side-sub-link" href="/batches.html" data-nav-view="batches">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4.5 7.5 12 3l7.5 4.5L12 12 4.5 7.5Z"/>
+              <path d="M4.5 12 12 16.5 19.5 12"/>
+              <path d="M4.5 16.5 12 21l7.5-4.5"/>
+            </svg>
+            Batches
+          </a>
+        </div>
+
         <div class="side-group-label">Messaging</div>
         <div class="side-subnav">
           <a class="side-sub-link" href="/sms/index.html" data-nav-view="send-sms">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
               <path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/>
             </svg>
-            Send SMS
+            SMS &amp; Templates
           </a>
           <a class="side-sub-link" href="/scheduled.html" data-nav-view="scheduled-sms">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -56,7 +85,7 @@
           </a>
         </div>
 
-        <div class="side-group-label">Monitoring</div>
+        <div class="side-group-label">Operations</div>
         <div class="side-subnav">
           <a class="side-sub-link" href="/gateway.html" data-nav-view="gateway">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -64,31 +93,18 @@
               <path d="M10 5.75h4"/>
               <circle cx="12" cy="18" r="0.8" fill="currentColor" stroke="none"/>
             </svg>
-            Gateway
+            Phone Gateway
           </a>
           <a class="side-sub-link" href="/bundles.html" data-nav-view="bundles">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
               <path d="M4.5 7.5 12 3l7.5 4.5L12 12 4.5 7.5Z"/>
               <path d="M4.5 7.5V16.5L12 21l7.5-4.5V7.5"/>
             </svg>
-            Bundles
+            Bundle Check
           </a>
         </div>
 
-        <div class="side-group-label">Directory</div>
-        <div class="side-subnav">
-          <a class="side-sub-link" href="/settings/index.html" data-nav-view="recipients">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="9" cy="9" r="3"/>
-              <circle cx="17" cy="10" r="2.5"/>
-              <path d="M4.5 19c.8-2.6 3-4 5.5-4s4.7 1.4 5.5 4"/>
-              <path d="M14.5 18c.45-1.65 1.7-2.7 3.5-3"/>
-            </svg>
-            Recipients
-          </a>
-        </div>
-
-        <div class="side-group-label">Admin</div>
+        <div class="side-group-label">Access</div>
         <div class="side-subnav">
           <a class="side-sub-link" href="/admin.html" data-nav-view="admin-settings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
@@ -135,13 +151,36 @@
           <div class="panel-head">
             <div>
               <h2>SMS Settings</h2>
-              <p class="mini-note">Only an admin can change the SMS send password or the signature appended to outgoing messages.</p>
+              <p class="mini-note">Only an admin can change the SMS route mode, send password, or the signature appended to outgoing messages.</p>
             </div>
           </div>
           <div class="stack">
             <label class="field">
               <span>Admin password</span>
               <input id="adminPasswordInput" type="password" placeholder="Required to change SMS settings" autocomplete="current-password">
+            </label>
+            <div class="field">
+              <span>SMS route mode</span>
+              <input id="gatewayModeInput" type="hidden" value="registered-bikers">
+              <div class="mode-switch-card">
+                <div class="mode-switch-copy">
+                  <strong id="gatewayModeLabel">Real mode</strong>
+                  <small id="gatewayModeHint">SMS go to the selected active biker numbers.</small>
+                </div>
+                <label class="mode-switch" for="gatewayModeToggle">
+                  <span class="mode-switch-side">Real</span>
+                  <input id="gatewayModeToggle" type="checkbox" role="switch" aria-label="Toggle SMS route mode between real mode and testing mode">
+                  <span class="mode-switch-track" aria-hidden="true">
+                    <span class="mode-switch-thumb"></span>
+                  </span>
+                  <span class="mode-switch-side">Testing</span>
+                </label>
+              </div>
+            </div>
+            <label class="field">
+              <span>Testing target number</span>
+              <input id="gatewayTargetNumberDisplay" type="text" readonly>
+              <small class="field-hint">When Testing mode is selected, every SMS is routed to this number even if a saved biker is chosen.</small>
             </label>
             <label class="field">
               <span>SMS send password</span>

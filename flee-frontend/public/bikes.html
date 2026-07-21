@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fleebee Bike Workflow</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1626'/%3E%3Cpath d='M19 5L9.5 14.5M19 5l-5.5 14-2-6.5L5 10.5z' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+</head>
+<body data-view="bikes">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <strong id="appNameLabel">Fleebee Dispatch Desk</strong>
+          <span>Workflow &amp; SMS Console</span>
+        </span>
+      </div>
+
+      <nav class="side-nav" aria-label="Primary">
+        <a class="side-link" href="/" data-nav-view="overview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+            <rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/>
+            <rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/>
+            <rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/>
+            <rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>
+          </svg>
+          Overview
+        </a>
+
+        <div class="side-group-label">Workflow</div>
+        <div class="side-subnav">
+          <a class="side-sub-link" href="/settings/index.html" data-nav-view="recipients">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="9" cy="9" r="3"/>
+              <circle cx="17" cy="10" r="2.5"/>
+              <path d="M4.5 19c.8-2.6 3-4 5.5-4s4.7 1.4 5.5 4"/>
+              <path d="M14.5 18c.45-1.65 1.7-2.7 3.5-3"/>
+            </svg>
+            Recipients
+          </a>
+          <a class="side-sub-link" href="/bikes.html" data-nav-view="bikes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 17h1.6M17.4 17H19M7 17l2-6h6l2 6M7.5 11 9 7.5h6L16.5 11"/>
+              <circle cx="7" cy="17" r="2"/>
+              <circle cx="17" cy="17" r="2"/>
+            </svg>
+            Bike Workflow
+          </a>
+          <a class="side-sub-link" href="/batches.html" data-nav-view="batches">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4.5 7.5 12 3l7.5 4.5L12 12 4.5 7.5Z"/>
+              <path d="M4.5 12 12 16.5 19.5 12"/>
+              <path d="M4.5 16.5 12 21l7.5-4.5"/>
+            </svg>
+            Batches
+          </a>
+        </div>
+
+        <div class="side-group-label">Messaging</div>
+        <div class="side-subnav">
+          <a class="side-sub-link" href="/sms/index.html" data-nav-view="send-sms">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+              <path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/>
+            </svg>
+            SMS &amp; Templates
+          </a>
+          <a class="side-sub-link" href="/scheduled.html" data-nav-view="scheduled-sms">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 3v3M16 3v3M4 9h16"/>
+              <rect x="4" y="5.5" width="16" height="15" rx="2"/>
+            </svg>
+            Scheduled SMS
+          </a>
+          <a class="side-sub-link" href="/messages.html" data-nav-view="message-history">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+              <path d="M6 7.5h12M6 12h12M6 16.5h8"/>
+            </svg>
+            Message History
+          </a>
+        </div>
+
+        <div class="side-group-label">Operations</div>
+        <div class="side-subnav">
+          <a class="side-sub-link" href="/gateway.html" data-nav-view="gateway">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="7" y="2.5" width="10" height="19" rx="2"/>
+              <path d="M10 5.75h4"/>
+              <circle cx="12" cy="18" r="0.8" fill="currentColor" stroke="none"/>
+            </svg>
+            Phone Gateway
+          </a>
+          <a class="side-sub-link" href="/bundles.html" data-nav-view="bundles">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4.5 7.5 12 3l7.5 4.5L12 12 4.5 7.5Z"/>
+              <path d="M4.5 7.5V16.5L12 21l7.5-4.5V7.5"/>
+            </svg>
+            Bundle Check
+          </a>
+        </div>
+
+        <div class="side-group-label">Access</div>
+        <div class="side-subnav">
+          <a class="side-sub-link" href="/admin.html" data-nav-view="admin-settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+              <circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/>
+              <circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/>
+              <circle cx="8" cy="17" r="2" fill="currentColor" stroke="none"/>
+            </svg>
+            Admin Settings
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="side-fact">
+          <span>SMS route</span>
+          <strong id="testRouteLabel">Loading...</strong>
+        </div>
+        <div class="side-fact">
+          <span>API endpoint</span>
+          <strong id="apiBaseLabel">Loading...</strong>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="main-header">
+        <div>
+          <h1>Bike Workflow</h1>
+          <p class="header-sub">Track bikes, progress stages, fine records, and automatic recipient notifications from one workflow page.</p>
+        </div>
+        <div class="header-actions">
+          <span id="phoneBadge" class="badge badge-warn">Checking phone</span>
+          <button id="bundleAlertButton" class="danger-button hidden" type="button">Check phone bundles</button>
+          <button id="refreshButton" class="ghost-button" type="button">Refresh</button>
+          <button id="logoutButton" class="ghost-button" type="button">Logout</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <p id="pageNotice" class="notice page-notice"></p>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 id="bikePanelTitle">Add Bike / Application</h2>
+              <p class="mini-note">Save the bike record first, then use the sections below for progress updates and fines.</p>
+            </div>
+          </div>
+
+          <form id="bikeForm" class="stack">
+            <div class="field-row">
+              <label class="field">
+                <span>Recipient</span>
+                <select id="bikeRecipientInput"></select>
+              </label>
+              <label class="field">
+                <span>Batch</span>
+                <select id="bikeBatchInput"></select>
+              </label>
+            </div>
+            <div class="schedule-grid">
+              <label class="field">
+                <span>Plate number</span>
+                <input id="bikePlateInput" type="text" placeholder="RAE 000A">
+              </label>
+              <label class="field">
+                <span>Chassis number</span>
+                <input id="bikeChassisInput" type="text" placeholder="Optional until provided">
+              </label>
+              <label class="field">
+                <span>Bike model</span>
+                <input id="bikeModelInput" type="text" placeholder="TVS / Boxer / Bajaj">
+              </label>
+            </div>
+            <div class="schedule-grid">
+              <label class="field">
+                <span>Lifecycle stage</span>
+                <select id="bikeStageInput"></select>
+              </label>
+              <label class="field">
+                <span>Insurance status</span>
+                <input id="bikeInsuranceStatusInput" type="text" placeholder="In progress / done">
+              </label>
+              <label class="field">
+                <span>Authorization status</span>
+                <input id="bikeAuthorizationStatusInput" type="text" placeholder="Pending / done">
+              </label>
+            </div>
+            <div class="schedule-grid">
+              <label class="field">
+                <span>Pickup status</span>
+                <input id="bikePickupStatusInput" type="text" placeholder="Ready / scheduled / collected">
+              </label>
+              <label class="field">
+                <span>Official start date</span>
+                <input id="bikeOfficialStartInput" type="date">
+              </label>
+              <label class="field">
+                <span>Next payment date</span>
+                <input id="bikeNextPaymentInput" type="date">
+              </label>
+            </div>
+            <div class="toggle-grid">
+              <label class="toggle-card" for="bikeNotificationsEnabledInput">
+                <input id="bikeNotificationsEnabledInput" type="checkbox" checked>
+                <span class="toggle-copy">
+                  <strong>Workflow notifications enabled</strong>
+                  <small>Allows this bike to trigger automatic SMS during progress and fine updates.</small>
+                </span>
+              </label>
+            </div>
+            <div class="field-row">
+              <label class="field">
+                <span>Known model issues</span>
+                <textarea id="bikeKnownIssuesInput" rows="3" placeholder="Reserve this space for recurring problems by model so we can avoid risky bikes later."></textarea>
+              </label>
+              <label class="field">
+                <span>Maintenance notes</span>
+                <textarea id="bikeMaintenanceNotesInput" rows="3" placeholder="Service, inspection, or operating notes"></textarea>
+              </label>
+            </div>
+            <label class="field">
+              <span>Notes</span>
+              <textarea id="bikeNotesInput" rows="4" placeholder="Extra workflow notes about this bike"></textarea>
+            </label>
+            <div class="action-row">
+              <button id="bikeSubmitButton" type="submit" class="primary-button">Save Bike</button>
+              <button id="bikeResetButton" type="button" class="ghost-button">Clear Form</button>
+            </div>
+          </form>
+          <p id="bikeNotice" class="notice"></p>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Bike Registry</h2>
+              <p class="mini-note">Each record should stay linked to a recipient and batch so status changes can drive the right notification.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Recipient</th>
+                  <th>Bike</th>
+                  <th>Stage</th>
+                  <th>Next payment</th>
+                  <th>History</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="bikeTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Progress Update</h2>
+              <p class="mini-note">The `Send notification` toggle stays visible here and defaults to checked so saving an update can immediately queue the stage-based SMS.</p>
+            </div>
+          </div>
+
+          <form id="progressForm" class="stack">
+            <div class="field-row">
+              <label class="field">
+                <span>Bike</span>
+                <select id="progressBikeInput"></select>
+              </label>
+              <label class="field">
+                <span>Stage</span>
+                <select id="progressStageInput"></select>
+              </label>
+            </div>
+            <div class="schedule-grid">
+              <label class="field">
+                <span>Category</span>
+                <select id="progressCategoryInput"></select>
+              </label>
+              <label class="field">
+                <span>Urgency</span>
+                <select id="progressUrgencyInput"></select>
+              </label>
+              <label class="toggle-card" for="progressNotifyInput">
+                <input id="progressNotifyInput" type="checkbox" checked>
+                <span class="toggle-copy">
+                  <strong>Send notification</strong>
+                  <small>Keep this checked to queue the configured Kinyarwanda SMS after save.</small>
+                </span>
+              </label>
+            </div>
+            <label class="field">
+              <span>Progress note</span>
+              <textarea id="progressNoteInput" rows="4" placeholder="Example: insurance finished, waiting for company pickup date"></textarea>
+            </label>
+            <div class="action-row">
+              <button type="submit" class="primary-button">Save Progress Update</button>
+            </div>
+          </form>
+          <p id="progressNotice" class="notice"></p>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Recent Progress History</h2>
+              <p class="mini-note">Use this to verify what changed and whether the recipient SMS was queued or skipped.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Bike</th>
+                  <th>Stage</th>
+                  <th>Category</th>
+                  <th>Urgency</th>
+                  <th>Note</th>
+                  <th>Result</th>
+                </tr>
+              </thead>
+              <tbody id="progressTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Fine Tracker</h2>
+              <p class="mini-note">Record a fine once and let Fleebee warn the responsible biker automatically when notification stays enabled.</p>
+            </div>
+          </div>
+
+          <form id="fineForm" class="stack">
+            <div class="field-row">
+              <label class="field">
+                <span>Bike</span>
+                <select id="fineBikeInput"></select>
+              </label>
+              <label class="field">
+                <span>Amount</span>
+                <input id="fineAmountInput" type="text" placeholder="5000 RWF">
+              </label>
+            </div>
+            <div class="schedule-grid">
+              <label class="field">
+                <span>Fine date</span>
+                <input id="fineDateInput" type="date">
+              </label>
+              <label class="field">
+                <span>Payment deadline</span>
+                <input id="fineDeadlineInput" type="date">
+              </label>
+              <label class="field">
+                <span>Urgency</span>
+                <select id="fineUrgencyInput"></select>
+              </label>
+            </div>
+            <label class="field">
+              <span>Reason</span>
+              <textarea id="fineReasonInput" rows="3" placeholder="Reason from Irembo or police notice"></textarea>
+            </label>
+            <label class="field">
+              <span>Source summary</span>
+              <textarea id="fineSourceInput" rows="3" placeholder="Optional raw SMS or note from Irembo"></textarea>
+            </label>
+            <div class="toggle-grid">
+              <label class="toggle-card" for="fineNotifyInput">
+                <input id="fineNotifyInput" type="checkbox" checked>
+                <span class="toggle-copy">
+                  <strong>Notify recipient</strong>
+                  <small>Enabled by default so the biker gets warned about the fine and payment urgency.</small>
+                </span>
+              </label>
+            </div>
+            <div class="action-row">
+              <button type="submit" class="primary-button">Record Fine</button>
+            </div>
+          </form>
+          <p id="fineNotice" class="notice"></p>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Fine History</h2>
+              <p class="mini-note">Keep every fine in one place so patterns and repeated offenses are visible later.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Bike</th>
+                  <th>Amount</th>
+                  <th>Reason</th>
+                  <th>Fine date</th>
+                  <th>Deadline</th>
+                  <th>Notification</th>
+                </tr>
+              </thead>
+              <tbody id="fineTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app-config.js"></script>
+  <script src="/assets/js/app.js"></script>
+</body>
+</html>

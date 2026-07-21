@@ -1,6 +1,7 @@
 const { env } = require("../config/env");
 const { buildDefaultPhoneState } = require("../data/defaults");
 const { prisma } = require("../lib/prisma");
+const { getSmsGatewayMode } = require("./setting-service");
 
 function isPhoneOnline(phone) {
   return Date.now() - phone.lastHeartbeatAt.getTime() <= env.PHONE_HEARTBEAT_STALE_MS;
@@ -10,9 +11,9 @@ function routeLabel(phone, targetLabel = phone.targetNumber) {
   return `${phone.fixedLocation} -> ${targetLabel}`;
 }
 
-function buildPhoneConfigData() {
+async function buildPhoneConfigData() {
   return {
-    mode: env.SMS_GATEWAY_MODE,
+    mode: await getSmsGatewayMode(),
     targetNumber: env.SMS_GATEWAY_TARGET_NUMBER,
     fixedLocation: env.SMS_GATEWAY_FIXED_LOCATION,
     batteryPolicy: env.SMS_GATEWAY_BATTERY_POLICY,
@@ -137,20 +138,23 @@ function serializePhone(phone) {
 }
 
 async function getPhoneState() {
+  const config = await buildPhoneConfigData();
   return prisma.phoneState.upsert({
     where: {
       id: env.PHONE_STATE_ID
     },
-    update: buildPhoneConfigData(),
+    update: config,
     create: {
       ...buildDefaultPhoneState(),
-      ...buildPhoneConfigData()
+      ...config
     }
   });
 }
 
 async function updatePhoneHeartbeat(payload = {}) {
+  const config = await buildPhoneConfigData();
   const data = {
+    ...config,
     lastHeartbeatAt: new Date()
   };
 
@@ -174,6 +178,7 @@ async function updatePhoneHeartbeat(payload = {}) {
     update: data,
     create: {
       ...buildDefaultPhoneState(),
+      ...config,
       ...data
     }
   });
@@ -181,12 +186,14 @@ async function updatePhoneHeartbeat(payload = {}) {
 
 async function requestBundleCheck() {
   const requestedAt = new Date();
+  const config = await buildPhoneConfigData();
 
   return prisma.phoneState.upsert({
     where: {
       id: env.PHONE_STATE_ID
     },
     update: {
+      ...config,
       bundleRequestedAt: requestedAt,
       bundleStatus: "requested",
       bundleSummary: buildBundleSummary("requested", "", "", "", env.SMS_BUNDLE_USSD_CODE),
@@ -195,6 +202,7 @@ async function requestBundleCheck() {
     },
     create: {
       ...buildDefaultPhoneState(),
+      ...config,
       bundleRequestedAt: requestedAt,
       bundleStatus: "requested",
       bundleSummary: buildBundleSummary("requested", "", "", "", env.SMS_BUNDLE_USSD_CODE)
@@ -203,6 +211,7 @@ async function requestBundleCheck() {
 }
 
 async function updateBundleCheck(payload = {}) {
+  const config = await buildPhoneConfigData();
   const status = normalizeBundleStatus(payload.status);
   const ussdCode = String(payload.ussdCode || env.SMS_BUNDLE_USSD_CODE).trim() || env.SMS_BUNDLE_USSD_CODE;
   const details = String(payload.details || "").trim();
@@ -211,6 +220,7 @@ async function updateBundleCheck(payload = {}) {
   const now = new Date();
 
   const data = {
+    ...config,
     bundleUssdCode: ussdCode,
     bundleStatus: status,
     bundleSummary: summary || null,
@@ -230,6 +240,7 @@ async function updateBundleCheck(payload = {}) {
     update: data,
     create: {
       ...buildDefaultPhoneState(),
+      ...config,
       ...data,
       ...(status !== "checking" && status !== "requested"
         ? {

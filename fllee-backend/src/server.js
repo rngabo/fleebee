@@ -5,6 +5,7 @@ const { seedDefaultBikers } = require("./services/biker-service");
 const { processDueScheduledMessages } = require("./services/scheduled-message-service");
 const { getPhoneState } = require("./services/phone-service");
 const { ensureSmsSettings } = require("./services/setting-service");
+const { ensureDefaultSmsTemplates } = require("./services/template-service");
 
 const server = createAppServer();
 let isShuttingDown = false;
@@ -14,6 +15,7 @@ let isProcessingSchedules = false;
 async function seedDefaults() {
   await seedDefaultBikers();
   await ensureSmsSettings();
+  await ensureDefaultSmsTemplates();
   await getPhoneState();
 }
 

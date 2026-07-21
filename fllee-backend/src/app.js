@@ -6,7 +6,17 @@ const { buildBrowserConfigScript } = require("./config/browser-config");
 const { env } = require("./config/env");
 const { sendJson, sendRedirect, sendText, readJson, withCors } = require("./lib/http");
 const { getContentType } = require("./server/mime-types");
+const { createBatch, deleteBatch, listBatches, updateBatch } = require("./services/batch-service");
 const { createBiker, deleteBiker, listBikers, updateBiker } = require("./services/biker-service");
+const {
+  createBike,
+  createBikeProgressUpdate,
+  createFine,
+  deleteBike,
+  listBikes,
+  listFines,
+  updateBike
+} = require("./services/bike-service");
 const { buildDashboardResponse } = require("./services/dashboard-service");
 const {
   claimNextMessage,
@@ -37,6 +47,12 @@ const {
   saveSmsSettings
 } = require("./services/setting-service");
 const {
+  createSmsTemplate,
+  deleteSmsTemplate,
+  listSmsTemplates,
+  updateSmsTemplate
+} = require("./services/template-service");
+const {
   clearSessionCookie,
   createSession,
   destroyBrowserSession,
@@ -44,6 +60,11 @@ const {
   setSessionCookie,
   touchBrowserSession
 } = require("./services/session-service");
+const {
+  WORKFLOW_CATEGORIES,
+  WORKFLOW_STAGES,
+  WORKFLOW_URGENCY_LEVELS
+} = require("./services/workflow-support");
 
 function resolveDashboardFilePath(pathname) {
   const requestedPath = pathname === "/"
@@ -247,6 +268,15 @@ function createAppServer() {
         return;
       }
 
+      if (req.method === "GET" && url.pathname === "/api/workflow/options") {
+        sendJson(res, 200, {
+          stages: WORKFLOW_STAGES,
+          categories: WORKFLOW_CATEGORIES,
+          urgencies: WORKFLOW_URGENCY_LEVELS
+        });
+        return;
+      }
+
       if (req.method === "GET" && url.pathname === "/api/bikers") {
         sendJson(res, 200, {
           items: await listBikers()
@@ -277,6 +307,115 @@ function createAppServer() {
       if (req.method === "DELETE" && /^\/api\/bikers\/[^/]+$/.test(url.pathname)) {
         const bikerId = decodeURIComponent(url.pathname.split("/")[3] || "");
         const response = await deleteBiker(bikerId);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/batches") {
+        sendJson(res, 200, {
+          items: await listBatches()
+        });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/batches") {
+        const payload = await readJson(req);
+        const response = await createBatch(payload);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "PUT" && /^\/api\/batches\/[^/]+$/.test(url.pathname)) {
+        const payload = await readJson(req);
+        const batchId = decodeURIComponent(url.pathname.split("/")[3] || "");
+        const response = await updateBatch(batchId, payload);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "DELETE" && /^\/api\/batches\/[^/]+$/.test(url.pathname)) {
+        const batchId = decodeURIComponent(url.pathname.split("/")[3] || "");
+        const response = await deleteBatch(batchId);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/bikes") {
+        sendJson(res, 200, {
+          items: await listBikes()
+        });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/bikes") {
+        const payload = await readJson(req);
+        const response = await createBike(payload);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "PUT" && /^\/api\/bikes\/[^/]+$/.test(url.pathname)) {
+        const payload = await readJson(req);
+        const bikeId = decodeURIComponent(url.pathname.split("/")[3] || "");
+        const response = await updateBike(bikeId, payload);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "DELETE" && /^\/api\/bikes\/[^/]+$/.test(url.pathname)) {
+        const bikeId = decodeURIComponent(url.pathname.split("/")[3] || "");
+        const response = await deleteBike(bikeId);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "POST" && /^\/api\/bikes\/[^/]+\/progress$/.test(url.pathname)) {
+        const payload = await readJson(req);
+        const bikeId = decodeURIComponent(url.pathname.split("/")[3] || "");
+        const response = await createBikeProgressUpdate(bikeId, payload);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/fines") {
+        sendJson(res, 200, {
+          items: await listFines()
+        });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/fines") {
+        const payload = await readJson(req);
+        const response = await createFine(payload);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/templates") {
+        sendJson(res, 200, {
+          items: await listSmsTemplates()
+        });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/templates") {
+        const payload = await readJson(req);
+        const response = await createSmsTemplate(payload);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "PUT" && /^\/api\/templates\/[^/]+$/.test(url.pathname)) {
+        const payload = await readJson(req);
+        const templateId = decodeURIComponent(url.pathname.split("/")[3] || "");
+        const response = await updateSmsTemplate(templateId, payload);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "DELETE" && /^\/api\/templates\/[^/]+$/.test(url.pathname)) {
+        const templateId = decodeURIComponent(url.pathname.split("/")[3] || "");
+        const response = await deleteSmsTemplate(templateId);
         sendJson(res, response.statusCode, response.body);
         return;
       }

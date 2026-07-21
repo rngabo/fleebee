@@ -18,7 +18,7 @@
         </span>
         <span class="brand-text">
           <strong id="appNameLabel">Fleebee Dispatch Desk</strong>
-          <span>SMS Dispatch Console</span>
+          <span>Workflow &amp; SMS Console</span>
         </span>
       </div>
 
@@ -33,13 +33,42 @@
           Overview
         </a>
 
+        <div class="side-group-label">Workflow</div>
+        <div class="side-subnav">
+          <a class="side-sub-link" href="/settings/index.html" data-nav-view="recipients">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="9" cy="9" r="3"/>
+              <circle cx="17" cy="10" r="2.5"/>
+              <path d="M4.5 19c.8-2.6 3-4 5.5-4s4.7 1.4 5.5 4"/>
+              <path d="M14.5 18c.45-1.65 1.7-2.7 3.5-3"/>
+            </svg>
+            Recipients
+          </a>
+          <a class="side-sub-link" href="/bikes.html" data-nav-view="bikes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 17h1.6M17.4 17H19M7 17l2-6h6l2 6M7.5 11 9 7.5h6L16.5 11"/>
+              <circle cx="7" cy="17" r="2"/>
+              <circle cx="17" cy="17" r="2"/>
+            </svg>
+            Bike Workflow
+          </a>
+          <a class="side-sub-link" href="/batches.html" data-nav-view="batches">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4.5 7.5 12 3l7.5 4.5L12 12 4.5 7.5Z"/>
+              <path d="M4.5 12 12 16.5 19.5 12"/>
+              <path d="M4.5 16.5 12 21l7.5-4.5"/>
+            </svg>
+            Batches
+          </a>
+        </div>
+
         <div class="side-group-label">Messaging</div>
         <div class="side-subnav">
           <a class="side-sub-link" href="/sms/index.html" data-nav-view="send-sms">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
               <path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/>
             </svg>
-            Send SMS
+            SMS &amp; Templates
           </a>
           <a class="side-sub-link" href="/scheduled.html" data-nav-view="scheduled-sms">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -56,7 +85,7 @@
           </a>
         </div>
 
-        <div class="side-group-label">Monitoring</div>
+        <div class="side-group-label">Operations</div>
         <div class="side-subnav">
           <a class="side-sub-link" href="/gateway.html" data-nav-view="gateway">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -64,31 +93,18 @@
               <path d="M10 5.75h4"/>
               <circle cx="12" cy="18" r="0.8" fill="currentColor" stroke="none"/>
             </svg>
-            Gateway
+            Phone Gateway
           </a>
           <a class="side-sub-link" href="/bundles.html" data-nav-view="bundles">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
               <path d="M4.5 7.5 12 3l7.5 4.5L12 12 4.5 7.5Z"/>
               <path d="M4.5 7.5V16.5L12 21l7.5-4.5V7.5"/>
             </svg>
-            Bundles
+            Bundle Check
           </a>
         </div>
 
-        <div class="side-group-label">Directory</div>
-        <div class="side-subnav">
-          <a class="side-sub-link" href="/settings/index.html" data-nav-view="recipients">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="9" cy="9" r="3"/>
-              <circle cx="17" cy="10" r="2.5"/>
-              <path d="M4.5 19c.8-2.6 3-4 5.5-4s4.7 1.4 5.5 4"/>
-              <path d="M14.5 18c.45-1.65 1.7-2.7 3.5-3"/>
-            </svg>
-            Recipients
-          </a>
-        </div>
-
-        <div class="side-group-label">Admin</div>
+        <div class="side-group-label">Access</div>
         <div class="side-subnav">
           <a class="side-sub-link" href="/admin.html" data-nav-view="admin-settings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
@@ -173,6 +189,14 @@
       </div>
       <p id="composeNote" class="modal-copy">Send now, or schedule it for later.</p>
       <form id="composeForm" class="stack">
+        <div class="field hidden" id="composeTargetTabsField">
+          <span>Recipient source</span>
+          <div class="category-row" id="composeTargetTabs">
+            <button type="button" class="category-pill active" data-target-mode="current">Current setup</button>
+            <button type="button" class="category-pill" data-target-mode="batch">Send using batch</button>
+          </div>
+        </div>
+
         <div class="field" id="composeRecipientsField">
           <span>Recipients</span>
           <div class="recipient-box">
@@ -185,30 +209,62 @@
           </div>
         </div>
 
+        <div class="field hidden" id="composeBatchField">
+          <span>Batch</span>
+          <select id="composeBatchSelect"></select>
+          <p id="composeBatchNotice" class="field-hint"></p>
+          <div class="recipient-box">
+            <div class="recipient-all recipient-all-static">
+              <strong>Registered active bikers in this batch</strong>
+              <span id="composeBatchRecipientCount" class="mini-note">0 selected</span>
+            </div>
+            <div id="composeBatchRecipientList" class="recipient-list"></div>
+          </div>
+        </div>
+
         <label class="field hidden" id="composeBikerField">
           <span>Biker</span>
           <select id="composeBiker"></select>
         </label>
 
-        <div class="field">
-          <span>Message type</span>
-          <div class="category-row" id="composeCategoryRow">
-            <button type="button" data-category="REMINDER" class="category-pill active">Reminder</button>
-            <button type="button" data-category="GENERAL" class="category-pill">General</button>
-            <button type="button" data-category="EMERGENCY" class="category-pill">Emergency</button>
+        <div class="field hidden" id="composeBodyModeField">
+          <span>Message body</span>
+          <div class="category-row" id="composeBodyModeRow">
+            <button type="button" class="category-pill active" data-body-mode="custom">Custom message</button>
+            <button type="button" class="category-pill" data-body-mode="template">Presaved template</button>
           </div>
         </div>
 
-        <label class="field">
+        <div class="field">
+          <span>Message type</span>
+          <div class="category-row" id="composeCategoryRow">
+            <button type="button" class="category-pill active" data-category="REMINDER">Reminder</button>
+            <button type="button" class="category-pill" data-category="GENERAL">General</button>
+            <button type="button" class="category-pill" data-category="EMERGENCY">Emergency</button>
+          </div>
+        </div>
+
+        <div class="field hidden" id="composeTemplateField">
+          <span>Saved template</span>
+          <select id="composeTemplateSelect"></select>
+          <p id="composeTemplateMeta" class="field-hint"></p>
+        </div>
+
+        <label class="field hidden" id="composeTemplatePreviewField">
+          <span id="composeTemplatePreviewLabel">Final SMS text</span>
+          <textarea id="composeTemplatePreview" rows="5" readonly></textarea>
+        </label>
+
+        <label class="field" id="composeMessageField">
           <span>Message</span>
           <textarea id="composeMessage" rows="4" placeholder="Write the SMS here"></textarea>
         </label>
 
         <div class="field" id="composeWhenField">
-          <span>When</span>
+          <span>When to send</span>
           <div class="category-row" id="composeWhenRow">
-            <button type="button" data-when="now" class="category-pill active">Send now</button>
-            <button type="button" data-when="later" class="category-pill">Schedule</button>
+            <button type="button" class="category-pill active" data-when="now">Send now</button>
+            <button type="button" class="category-pill" data-when="later">Schedule</button>
           </div>
         </div>
 
@@ -220,7 +276,7 @@
           <label class="field">
             <span>Repeat</span>
             <select id="composeRepeat">
-              <option value="ONCE">Once</option>
+              <option value="ONCE">One time</option>
               <option value="DAILY">Daily</option>
               <option value="WEEKLY">Weekly</option>
               <option value="MONTHLY">Monthly</option>
@@ -234,9 +290,10 @@
         </div>
 
         <p id="composeNotice" class="notice"></p>
-        <div class="action-row">
+        <div class="action-row modal-action-row">
           <button id="composeSubmit" type="submit" class="primary-button">Send SMS</button>
           <button type="button" class="ghost-button" data-close-modal="compose">Cancel</button>
+          <div id="composeRouteStatus" class="mode-status-pill mode-live" aria-live="polite">Live mode</div>
         </div>
       </form>
     </section>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fleebee Settings</title>
+  <title>Fleebee Recipients</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1626'/%3E%3Cpath d='M19 5L9.5 14.5M19 5l-5.5 14-2-6.5L5 10.5z' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/assets/css/styles.css">
 </head>
@@ -18,7 +18,7 @@
         </span>
         <span class="brand-text">
           <strong id="appNameLabel">Fleebee Dispatch Desk</strong>
-          <span>SMS Dispatch Console</span>
+          <span>Workflow &amp; SMS Console</span>
         </span>
       </div>
 
@@ -33,13 +33,42 @@
           Overview
         </a>
 
+        <div class="side-group-label">Workflow</div>
+        <div class="side-subnav">
+          <a class="side-sub-link" href="/settings/index.html" data-nav-view="recipients">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="9" cy="9" r="3"/>
+              <circle cx="17" cy="10" r="2.5"/>
+              <path d="M4.5 19c.8-2.6 3-4 5.5-4s4.7 1.4 5.5 4"/>
+              <path d="M14.5 18c.45-1.65 1.7-2.7 3.5-3"/>
+            </svg>
+            Recipients
+          </a>
+          <a class="side-sub-link" href="/bikes.html" data-nav-view="bikes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 17h1.6M17.4 17H19M7 17l2-6h6l2 6M7.5 11 9 7.5h6L16.5 11"/>
+              <circle cx="7" cy="17" r="2"/>
+              <circle cx="17" cy="17" r="2"/>
+            </svg>
+            Bike Workflow
+          </a>
+          <a class="side-sub-link" href="/batches.html" data-nav-view="batches">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4.5 7.5 12 3l7.5 4.5L12 12 4.5 7.5Z"/>
+              <path d="M4.5 12 12 16.5 19.5 12"/>
+              <path d="M4.5 16.5 12 21l7.5-4.5"/>
+            </svg>
+            Batches
+          </a>
+        </div>
+
         <div class="side-group-label">Messaging</div>
         <div class="side-subnav">
           <a class="side-sub-link" href="/sms/index.html" data-nav-view="send-sms">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
               <path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/>
             </svg>
-            Send SMS
+            SMS &amp; Templates
           </a>
           <a class="side-sub-link" href="/scheduled.html" data-nav-view="scheduled-sms">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -56,7 +85,7 @@
           </a>
         </div>
 
-        <div class="side-group-label">Monitoring</div>
+        <div class="side-group-label">Operations</div>
         <div class="side-subnav">
           <a class="side-sub-link" href="/gateway.html" data-nav-view="gateway">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -64,31 +93,18 @@
               <path d="M10 5.75h4"/>
               <circle cx="12" cy="18" r="0.8" fill="currentColor" stroke="none"/>
             </svg>
-            Gateway
+            Phone Gateway
           </a>
           <a class="side-sub-link" href="/bundles.html" data-nav-view="bundles">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
               <path d="M4.5 7.5 12 3l7.5 4.5L12 12 4.5 7.5Z"/>
               <path d="M4.5 7.5V16.5L12 21l7.5-4.5V7.5"/>
             </svg>
-            Bundles
+            Bundle Check
           </a>
         </div>
 
-        <div class="side-group-label">Directory</div>
-        <div class="side-subnav">
-          <a class="side-sub-link" href="/settings/index.html" data-nav-view="recipients">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="9" cy="9" r="3"/>
-              <circle cx="17" cy="10" r="2.5"/>
-              <path d="M4.5 19c.8-2.6 3-4 5.5-4s4.7 1.4 5.5 4"/>
-              <path d="M14.5 18c.45-1.65 1.7-2.7 3.5-3"/>
-            </svg>
-            Recipients
-          </a>
-        </div>
-
-        <div class="side-group-label">Admin</div>
+        <div class="side-group-label">Access</div>
         <div class="side-subnav">
           <a class="side-sub-link" href="/admin.html" data-nav-view="admin-settings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
@@ -118,7 +134,7 @@
       <header class="main-header">
         <div>
           <h1>Recipients</h1>
-          <p class="header-sub">Manage the rider records that can be activated or paused for SMS delivery.</p>
+          <p class="header-sub">Capture the right rider details early, then keep only active riders eligible for workflow SMS and testing.</p>
         </div>
         <div class="header-actions">
           <span id="phoneBadge" class="badge badge-warn">Checking phone</span>
@@ -135,30 +151,38 @@
           <div class="panel-head">
             <div>
               <h2 id="bikerPanelTitle">Add Recipient</h2>
-              <p id="bikerPanelNote" class="mini-note">Fill in the rider's details, then save.</p>
+              <p id="bikerPanelNote" class="mini-note">Save the rider first, then create the real bike workflow record on the Bike Workflow page.</p>
+            </div>
+          </div>
+          <div id="recipientBatchFlowBar" class="bulk-bar hidden">
+            <span id="recipientBatchFlowLabel" class="mini-note"></span>
+            <div class="bulk-actions">
+              <button id="recipientBatchFlowClearButton" class="ghost-button" type="button">Clear Batch Target</button>
             </div>
           </div>
 
           <form id="bikerForm" class="stack">
             <div class="field-row">
               <label class="field">
-                <span>Name</span>
-                <input id="nameInput" type="text" placeholder="Biker full name">
+                <span>Full name</span>
+                <input id="nameInput" type="text" placeholder="Rider full name">
               </label>
+              <label class="field">
+                <span>First name</span>
+                <input id="firstNameInput" type="text" placeholder="Used in SMS greetings">
+              </label>
+            </div>
+            <div class="field-row">
               <label class="field">
                 <span>Phone number</span>
                 <input id="phoneInput" type="text" placeholder="0788...">
               </label>
+              <label class="field">
+                <span>Batch</span>
+                <select id="bikerBatchInput"></select>
+              </label>
             </div>
             <div class="schedule-grid">
-              <label class="field">
-                <span>Bike plate</span>
-                <input id="plateInput" type="text" placeholder="RAE 000A">
-              </label>
-              <label class="field">
-                <span>Bike model</span>
-                <input id="modelInput" type="text" placeholder="TVS / Boxer / Bajaj">
-              </label>
               <label class="field">
                 <span>Status</span>
                 <select id="statusInput">
@@ -166,23 +190,49 @@
                   <option value="Inactive">Inactive</option>
                 </select>
               </label>
+              <label class="field">
+                <span>Current plate summary</span>
+                <input id="plateInput" type="text" placeholder="Optional quick summary">
+              </label>
+              <label class="field">
+                <span>Current bike model summary</span>
+                <input id="modelInput" type="text" placeholder="Optional quick summary">
+              </label>
             </div>
             <div class="toggle-grid toggle-grid-row">
+              <label class="toggle-card" for="notificationsEnabledInput">
+                <input id="notificationsEnabledInput" type="checkbox" checked>
+                <span class="toggle-copy">
+                  <strong>Notifications enabled</strong>
+                  <small>Default on. Workflow pages can still decide whether a specific update sends an SMS.</small>
+                </span>
+              </label>
+              <label class="toggle-card" for="teamLeaderInput">
+                <input id="teamLeaderInput" type="checkbox">
+                <span class="toggle-copy">
+                  <strong>Team leader</strong>
+                  <small>Mark riders who help follow up on inspections, maintenance, or communication.</small>
+                </span>
+              </label>
               <label class="toggle-card" for="reminderDueInput">
                 <input id="reminderDueInput" type="checkbox">
                 <span class="toggle-copy">
                   <strong>Reminder due</strong>
-                  <small>Marks this biker as owing a reminder.</small>
+                  <small>Legacy reminder flag for quick follow-up.</small>
                 </span>
               </label>
               <label class="toggle-card" for="urgentAlertInput">
                 <input id="urgentAlertInput" type="checkbox">
                 <span class="toggle-copy">
                   <strong>Emergency open</strong>
-                  <small>Flags this biker for urgent follow-up.</small>
+                  <small>Legacy urgent follow-up flag.</small>
                 </span>
               </label>
             </div>
+            <label class="field">
+              <span>Notes</span>
+              <textarea id="notesInput" rows="4" placeholder="Character, documents, insurer prep, or any recruitment notes"></textarea>
+            </label>
             <div class="action-row">
               <button id="bikerSubmitButton" type="submit" class="primary-button">Add Recipient</button>
               <button id="bikerResetButton" type="button" class="ghost-button">Clear Form</button>
@@ -195,7 +245,7 @@
           <div class="panel-head">
             <div>
               <h2>Recipient Directory</h2>
-              <p class="mini-note">Use Details to view a full record, or Modify to select rows for editing and deleting.</p>
+              <p class="mini-note">Use Modify to select rows for editing or deletion. Active recipients remain eligible for manual and workflow SMS.</p>
             </div>
             <button id="bikerModifyButton" class="ghost-button" type="button">Modify</button>
           </div>
@@ -213,9 +263,9 @@
               <thead>
                 <tr>
                   <th class="check-cell" aria-label="Select"></th>
-                  <th>Name</th>
+                  <th>Recipient</th>
                   <th>Phone</th>
-                  <th>Bike</th>
+                  <th>Current workflow</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>

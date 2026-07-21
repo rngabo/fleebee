@@ -3,9 +3,27 @@ const { prisma } = require("../lib/prisma");
 
 const DISPATCH_PASSWORD_SETTING_ID = "dispatchPassword";
 const MESSAGE_SIGNATURE_SETTING_ID = "messageSignature";
+const GATEWAY_MODE_SETTING_ID = "smsGatewayMode";
 
 function normalizeSettingValue(value) {
   return String(value || "").trim();
+}
+
+function normalizeGatewayMode(value, fallback = "registered-bikers") {
+  const normalized = normalizeSettingValue(value).toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (["registered-bikers", "real", "real-mode", "live"].includes(normalized)) {
+    return "registered-bikers";
+  }
+
+  if (["test-routing", "testing", "testing-mode", "test"].includes(normalized)) {
+    return "test-routing";
+  }
+
+  return null;
 }
 
 async function getSettingValue(id) {
@@ -34,9 +52,10 @@ async function setSettingValue(id, value) {
 }
 
 async function ensureSmsSettings() {
-  const [dispatchPassword, signature] = await Promise.all([
+  const [dispatchPassword, signature, gatewayMode] = await Promise.all([
     getSettingValue(DISPATCH_PASSWORD_SETTING_ID),
-    getSettingValue(MESSAGE_SIGNATURE_SETTING_ID)
+    getSettingValue(MESSAGE_SIGNATURE_SETTING_ID),
+    getSettingValue(GATEWAY_MODE_SETTING_ID)
   ]);
 
   if (!dispatchPassword) {
@@ -45,6 +64,13 @@ async function ensureSmsSettings() {
 
   if (!signature) {
     await setSettingValue(MESSAGE_SIGNATURE_SETTING_ID, "");
+  }
+
+  if (!gatewayMode) {
+    await setSettingValue(
+      GATEWAY_MODE_SETTING_ID,
+      normalizeGatewayMode(env.SMS_GATEWAY_MODE, "registered-bikers") || "registered-bikers"
+    );
   }
 }
 
@@ -57,15 +83,25 @@ async function getMessageSignature() {
   return normalizeSettingValue(await getSettingValue(MESSAGE_SIGNATURE_SETTING_ID));
 }
 
+async function getSmsGatewayMode() {
+  const stored = normalizeGatewayMode(await getSettingValue(GATEWAY_MODE_SETTING_ID), "");
+  return stored
+    || normalizeGatewayMode(env.SMS_GATEWAY_MODE, "registered-bikers")
+    || "registered-bikers";
+}
+
 async function getSmsSettings() {
-  const [dispatchPassword, signature] = await Promise.all([
+  const [dispatchPassword, signature, gatewayMode] = await Promise.all([
     getDispatchPassword(),
-    getMessageSignature()
+    getMessageSignature(),
+    getSmsGatewayMode()
   ]);
 
   return {
     passwordConfigured: Boolean(dispatchPassword),
-    signature
+    signature,
+    gatewayMode,
+    gatewayTargetNumber: normalizeSettingValue(env.SMS_GATEWAY_TARGET_NUMBER)
   };
 }
 
@@ -101,10 +137,20 @@ async function saveSmsSettings(payload = {}) {
   }
 
   const signature = String(payload.signature || "").trim();
+  const gatewayMode = normalizeGatewayMode(payload.gatewayMode, await getSmsGatewayMode());
+  if (!gatewayMode) {
+    return {
+      statusCode: 400,
+      body: {
+        error: "Choose either Real mode or Testing mode for SMS routing."
+      }
+    };
+  }
 
   await Promise.all([
     setSettingValue(DISPATCH_PASSWORD_SETTING_ID, nextPassword),
-    setSettingValue(MESSAGE_SIGNATURE_SETTING_ID, signature)
+    setSettingValue(MESSAGE_SIGNATURE_SETTING_ID, signature),
+    setSettingValue(GATEWAY_MODE_SETTING_ID, gatewayMode)
   ]);
 
   return {
@@ -112,7 +158,9 @@ async function saveSmsSettings(payload = {}) {
     body: {
       saved: true,
       passwordConfigured: true,
-      signature
+      signature,
+      gatewayMode,
+      gatewayTargetNumber: normalizeSettingValue(env.SMS_GATEWAY_TARGET_NUMBER)
     }
   };
 }
@@ -120,8 +168,10 @@ async function saveSmsSettings(payload = {}) {
 module.exports = {
   ensureSmsSettings,
   getDispatchPassword,
+  getSmsGatewayMode,
   getMessageSignature,
   getSmsSettings,
   isDispatchPasswordValid,
+  normalizeGatewayMode,
   saveSmsSettings
 };

@@ -30,7 +30,16 @@ function normalizePhoneNumber(value) {
 }
 
 function normalizeMessageSource(value) {
-  return String(value || "").trim().toLowerCase() === "scheduled" ? "scheduled" : "manual";
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "scheduled") {
+    return "scheduled";
+  }
+
+  if (normalized === "workflow") {
+    return "workflow";
+  }
+
+  return "manual";
 }
 
 function isTestRoutingMode(phone) {
@@ -48,7 +57,11 @@ function buildPendingReleaseAt(from = new Date()) {
 }
 
 function buildPendingHoldNote(source) {
-  const label = source === "scheduled" ? "Scheduled message" : "Message";
+  const label = source === "scheduled"
+    ? "Scheduled message"
+    : source === "workflow"
+      ? "Workflow message"
+      : "Message";
   return `${label} saved in the pending queue and waiting for release to the Android phone.`;
 }
 
@@ -101,11 +114,16 @@ function serializeMessage(message) {
     id: message.id,
     bikerId: message.bikerId,
     bikerName: message.bikerName,
+    bikeId: message.bikeId || "",
+    templateId: message.templateId || "",
     source: message.source,
     scheduledMessageId: message.scheduledMessageId || "",
     category: message.category,
     body: message.deliveryBody || message.body,
     editorBody: message.body,
+    workflowStage: message.workflowStage || "",
+    workflowCategory: message.workflowCategory || "",
+    workflowUrgency: message.workflowUrgency || "",
     status: message.status,
     availableAt: message.availableAt ? message.availableAt.toISOString() : null,
     createdAt: message.createdAt.toISOString(),
@@ -302,12 +320,17 @@ async function queueMessageForDispatch(payload, { requirePassword = false } = {}
       id: randomUUID(),
       bikerId: biker.id,
       bikerName: biker.name,
+      bikeId: payload.bikeId ? String(payload.bikeId).trim() : null,
+      templateId: payload.templateId ? String(payload.templateId).trim() : null,
       source: normalizeMessageSource(payload.source),
       scheduledMessageId: payload.scheduledMessageId ? String(payload.scheduledMessageId).trim() : null,
       category,
       body,
       deliveryBody,
       normalizedBody,
+      workflowStage: payload.workflowStage ? String(payload.workflowStage).trim() : null,
+      workflowCategory: payload.workflowCategory ? String(payload.workflowCategory).trim() : null,
+      workflowUrgency: payload.workflowUrgency ? String(payload.workflowUrgency).trim() : null,
       status: "pending",
       availableAt,
       route,
@@ -394,10 +417,17 @@ async function updatePendingMessage(id, payload) {
     data: {
       bikerId: biker.id,
       bikerName: biker.name,
+      bikeId: existing.bikeId || null,
+      templateId: existing.templateId || null,
+      source: existing.source,
+      scheduledMessageId: existing.scheduledMessageId || null,
       category,
       body,
       deliveryBody,
       normalizedBody,
+      workflowStage: existing.workflowStage || null,
+      workflowCategory: existing.workflowCategory || null,
+      workflowUrgency: existing.workflowUrgency || null,
       status: "pending",
       availableAt,
       claimedAt: null,

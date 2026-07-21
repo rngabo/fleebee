@@ -539,6 +539,12 @@ a {
   font-weight: 600;
 }
 
+.field-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .field input,
 .field select,
 .field textarea {
@@ -575,6 +581,12 @@ a {
   gap: 8px;
 }
 
+.category-row-large {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .category-pill {
   min-height: 36px;
   padding: 7px 16px;
@@ -597,10 +609,144 @@ a {
   color: #fff;
 }
 
+.category-pill-large {
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 0.92rem;
+  text-align: center;
+  justify-content: center;
+}
+
+.mode-switch-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.mode-switch-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.mode-switch-copy strong {
+  font-size: 0.92rem;
+}
+
+.mode-switch-copy small {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  cursor: pointer;
+}
+
+.mode-switch-side {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mode-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mode-switch-track {
+  position: relative;
+  width: 72px;
+  height: 38px;
+  border-radius: 999px;
+  background: #d8e2ef;
+  box-shadow: inset 0 0 0 1px rgba(23, 32, 46, 0.08);
+  transition: background-color 160ms ease;
+}
+
+.mode-switch-thumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(23, 32, 46, 0.18);
+  transition: transform 160ms ease;
+}
+
+.mode-switch input:checked + .mode-switch-track {
+  background: rgba(217, 45, 32, 0.82);
+}
+
+.mode-switch input:checked + .mode-switch-track .mode-switch-thumb {
+  transform: translateX(34px);
+}
+
+.mode-switch input:focus-visible + .mode-switch-track {
+  outline: 3px solid rgba(29, 85, 196, 0.35);
+  outline-offset: 3px;
+}
+
 .action-row {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.modal-action-row {
+  align-items: center;
+}
+
+.mode-status-pill {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.86rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mode-status-pill::before {
+  content: "";
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06);
+}
+
+.mode-live {
+  color: #0f8a43;
+  background: rgba(15, 138, 67, 0.1);
+}
+
+.mode-testing {
+  color: #d92d20;
+  background: rgba(217, 45, 32, 0.1);
+}
+
+@media (max-width: 640px) {
+  .mode-status-pill {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .toggle-grid {
@@ -1269,6 +1415,10 @@ a {
   margin: 0 0 0 auto;
 }
 
+.recipient-all-static {
+  cursor: default;
+}
+
 .recipient-list {
   max-height: 180px;
   overflow: auto;
@@ -1289,6 +1439,10 @@ a {
 
 .recipient-item:hover {
   background: #f7f9fc;
+}
+
+.recipient-preview {
+  cursor: default;
 }
 
 .recipient-item input,

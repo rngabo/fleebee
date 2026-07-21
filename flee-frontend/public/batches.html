@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fleebee Scheduled SMS</title>
+  <title>Fleebee Batches</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1626'/%3E%3Cpath d='M19 5L9.5 14.5M19 5l-5.5 14-2-6.5L5 10.5z' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/assets/css/styles.css">
 </head>
-<body data-view="scheduled-sms">
+<body data-view="batches">
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
@@ -133,8 +133,8 @@
     <div class="main">
       <header class="main-header">
         <div>
-          <h1>Scheduled SMS</h1>
-          <p class="header-sub">Plan messages ahead of time and pause, resume, or edit them from one page.</p>
+          <h1>Batches</h1>
+          <p class="header-sub">Group riders and bikes by recruitment wave so later communication can target the right people at the right time.</p>
         </div>
         <div class="header-actions">
           <span id="phoneBadge" class="badge badge-warn">Checking phone</span>
@@ -150,147 +150,67 @@
         <section class="panel">
           <div class="panel-head">
             <div>
-              <h2>Scheduled Sends</h2>
-              <p class="mini-note">Recurring and one-time messages that the backend turns into queued SMS at the right moment.</p>
+              <h2 id="batchPanelTitle">Add Batch</h2>
+              <p class="mini-note">Use batches for shared onboarding, lease reminders, title transfer preparation, and later batch-specific SMS. After saving a new batch, Fleebee will take you straight to adding its recipients.</p>
             </div>
-            <button id="newScheduleButton" class="primary-button" type="button">New Schedule</button>
+          </div>
+          <form id="batchForm" class="stack">
+            <div class="field-row">
+              <label class="field">
+                <span>Batch name</span>
+                <input id="batchNameInput" type="text" placeholder="July 2026 intake">
+              </label>
+              <label class="field">
+                <span>Batch code</span>
+                <input id="batchCodeInput" type="text" placeholder="B-2026-07A">
+              </label>
+            </div>
+            <div class="field-row">
+              <label class="field">
+                <span>Expected delivery date</span>
+                <input id="batchExpectedDeliveryInput" type="date">
+              </label>
+              <label class="field">
+                <span>Lease end date</span>
+                <input id="batchLeaseEndInput" type="date">
+              </label>
+            </div>
+            <label class="field">
+              <span>Notes</span>
+              <textarea id="batchNotesInput" rows="4" placeholder="Anything important about this batch, timeline, or follow-up"></textarea>
+            </label>
+            <div class="action-row">
+              <button id="batchSubmitButton" type="submit" class="primary-button">Save Batch</button>
+              <button id="batchResetButton" type="button" class="ghost-button">Clear Form</button>
+            </div>
+          </form>
+          <p id="batchNotice" class="notice"></p>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Batch Directory</h2>
+              <p class="mini-note">This becomes the base for later bulk messages tied to lease end dates, safety, title transfer preparation, and similar notices.</p>
+            </div>
           </div>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Biker</th>
-                  <th>Message</th>
-                  <th>Repeat</th>
-                  <th>Next send</th>
+                  <th>Batch</th>
+                  <th>Expected delivery</th>
+                  <th>Lease end</th>
+                  <th>Linked records</th>
                   <th>Actions</th>
                 </tr>
               </thead>
-              <tbody id="scheduleTableBody"></tbody>
+              <tbody id="batchTableBody"></tbody>
             </table>
           </div>
         </section>
       </div>
     </div>
-  </div>
-
-  <div id="composeModal" class="modal-shell hidden" aria-hidden="true">
-    <div class="modal-backdrop" data-close-modal="compose"></div>
-    <section class="modal-card compose-modal" role="dialog" aria-modal="true" aria-labelledby="composeTitle">
-      <div class="modal-head">
-        <h2 id="composeTitle">New SMS</h2>
-        <button class="ghost-button" type="button" data-close-modal="compose">Cancel</button>
-      </div>
-      <p id="composeNote" class="modal-copy">Send now, or schedule it for later.</p>
-      <form id="composeForm" class="stack">
-        <div class="field hidden" id="composeTargetTabsField">
-          <span>Recipient source</span>
-          <div class="category-row" id="composeTargetTabs">
-            <button type="button" class="category-pill active" data-target-mode="current">Current setup</button>
-            <button type="button" class="category-pill" data-target-mode="batch">Send using batch</button>
-          </div>
-        </div>
-
-        <div class="field" id="composeRecipientsField">
-          <span>Recipients</span>
-          <div class="recipient-box">
-            <label class="recipient-all">
-              <input type="checkbox" id="composeAllBikers">
-              <strong>All active bikers</strong>
-              <span id="composeRecipientCount" class="mini-note">0 selected</span>
-            </label>
-            <div id="composeRecipientList" class="recipient-list"></div>
-          </div>
-        </div>
-
-        <div class="field hidden" id="composeBatchField">
-          <span>Batch</span>
-          <select id="composeBatchSelect"></select>
-          <p id="composeBatchNotice" class="field-hint"></p>
-          <div class="recipient-box">
-            <div class="recipient-all recipient-all-static">
-              <strong>Registered active bikers in this batch</strong>
-              <span id="composeBatchRecipientCount" class="mini-note">0 selected</span>
-            </div>
-            <div id="composeBatchRecipientList" class="recipient-list"></div>
-          </div>
-        </div>
-
-        <label class="field hidden" id="composeBikerField">
-          <span>Biker</span>
-          <select id="composeBiker"></select>
-        </label>
-
-        <div class="field hidden" id="composeBodyModeField">
-          <span>Message body</span>
-          <div class="category-row" id="composeBodyModeRow">
-            <button type="button" class="category-pill active" data-body-mode="custom">Custom message</button>
-            <button type="button" class="category-pill" data-body-mode="template">Presaved template</button>
-          </div>
-        </div>
-
-        <div class="field">
-          <span>Message type</span>
-          <div class="category-row" id="composeCategoryRow">
-            <button type="button" class="category-pill active" data-category="REMINDER">Reminder</button>
-            <button type="button" class="category-pill" data-category="GENERAL">General</button>
-            <button type="button" class="category-pill" data-category="EMERGENCY">Emergency</button>
-          </div>
-        </div>
-
-        <div class="field hidden" id="composeTemplateField">
-          <span>Saved template</span>
-          <select id="composeTemplateSelect"></select>
-          <p id="composeTemplateMeta" class="field-hint"></p>
-        </div>
-
-        <label class="field hidden" id="composeTemplatePreviewField">
-          <span id="composeTemplatePreviewLabel">Final SMS text</span>
-          <textarea id="composeTemplatePreview" rows="5" readonly></textarea>
-        </label>
-
-        <label class="field" id="composeMessageField">
-          <span>Message</span>
-          <textarea id="composeMessage" rows="4" placeholder="Write the SMS here"></textarea>
-        </label>
-
-        <div class="field" id="composeWhenField">
-          <span>When to send</span>
-          <div class="category-row" id="composeWhenRow">
-            <button type="button" class="category-pill active" data-when="now">Send now</button>
-            <button type="button" class="category-pill" data-when="later">Schedule</button>
-          </div>
-        </div>
-
-        <div id="composeScheduleRow" class="field-row hidden">
-          <label class="field">
-            <span>Send at</span>
-            <input id="composeSendAt" type="datetime-local">
-          </label>
-          <label class="field">
-            <span>Repeat</span>
-            <select id="composeRepeat">
-              <option value="ONCE">One time</option>
-              <option value="DAILY">Daily</option>
-              <option value="WEEKLY">Weekly</option>
-              <option value="MONTHLY">Monthly</option>
-            </select>
-          </label>
-        </div>
-
-        <div id="composePasswordRow" class="field">
-          <span>SMS send password</span>
-          <input id="composePassword" type="password" placeholder="Last step before queueing the SMS" autocomplete="current-password">
-        </div>
-
-        <p id="composeNotice" class="notice"></p>
-        <div class="action-row modal-action-row">
-          <button id="composeSubmit" type="submit" class="primary-button">Send SMS</button>
-          <button type="button" class="ghost-button" data-close-modal="compose">Cancel</button>
-          <div id="composeRouteStatus" class="mode-status-pill mode-live" aria-live="polite">Live mode</div>
-        </div>
-      </form>
-    </section>
   </div>
 
   <script src="/app-config.js"></script>

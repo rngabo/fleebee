@@ -1,7 +1,7 @@
 # Fleebee Progress Handoff
 
 ## Date
-Updated on `2026-07-12`.
+Updated on `2026-07-18`.
 
 ## Main Goal
 Keep Fleebee working as a real remote SMS system:
@@ -487,3 +487,431 @@ The big recent wins were bundle automation, persistent ADB recovery on `.50`, ni
 
 - Sync the new standalone pages to `.50`.
 - Verify each new route loads correctly behind the login screen.
+
+## 2026-07-18
+
+### What changed
+
+- Added [BIKER_WORKFLOW_REQUIREMENTS.md](/home/richard/APPS/SALVI/2026/fleebee-management/BIKER_WORKFLOW_REQUIREMENTS.md) as a dedicated workflow reference for the real biker lifecycle.
+- Documented the full operational flow from head hunting, bike ordering, plate and chassis assignment, insurance, RURA authorization, pickup, notary, delivery, payment reminders, fines, bulk notices, emergency SMS, and batch-based messaging.
+- Documented that bike progress updates should support a visible default-checked `Send notification` control and automatic stage-based Kinyarwanda SMS selection from SMS page templates.
+
+### Decisions made and why
+
+- Future Fleebee work should treat `BIKER_WORKFLOW_REQUIREMENTS.md` as the business-process source document for bike and biker workflow features so new development stays aligned with the real operations flow.
+- Stage-based template configuration should live on the SMS page, while progress updates should trigger automatic notifications from those templates.
+- Bike records should support plate number, chassis number, and bike model as part of the workflow because those details arrive at different times and drive recipient updates.
+
+### Current state
+
+- The workflow and requirements are now documented, but the schema, UI, and automation needed to support them are not yet implemented.
+- The project now has a shared reference for future design, data-model, and notification decisions.
+
+### Next steps
+
+- Add the required workflow data model for bikes, batches, stages, fines, and templates.
+- Build a bike or applications UI for progress tracking and automatic notification control.
+- Connect progress updates to automatic SMS generation using configured Kinyarwanda templates.
+
+## 2026-07-18
+
+### What changed
+
+- Reviewed and reorganized [BIKER_WORKFLOW_REQUIREMENTS.md](/home/richard/APPS/SALVI/2026/fleebee-management/BIKER_WORKFLOW_REQUIREMENTS.md) into a cleaner product specification.
+- Reworked the document structure around:
+  - product outcome
+  - actors
+  - real business workflow
+  - functional requirements
+  - recommended data model
+  - lifecycle stages
+  - notification categories
+  - automatic notification rules
+  - UI guidance
+  - implementation priorities
+  - open design decisions
+- Clarified template rules, audit trail expectations, duplicate protection, and the role of the SMS page in stage-based configuration.
+
+### Decisions made and why
+
+- Kept the document focused on real operational behavior rather than implementation details only, so it can guide both product decisions and schema or UI work.
+- Separated lifecycle stages from notification categories because they serve different purposes and were previously mixed together.
+- Added explicit open design questions so future implementation work can confirm the few remaining business-rule choices instead of guessing.
+
+### Current state
+
+- `BIKER_WORKFLOW_REQUIREMENTS.md` is now a stronger source document for future Fleebee workflow development.
+- No application code changed in this step; this was a documentation refinement pass only.
+
+### Next steps
+
+- Confirm the open design decisions in the workflow document.
+- Start Phase 1 implementation with schema and backend support for bikes, stages, templates, and automatic notifications.
+
+## 2026-07-18
+
+### What changed
+
+- Implemented the first major workflow slice across backend schema, backend routes, and frontend dashboard pages.
+- Added new Prisma models for:
+  - batches
+  - bikes
+  - bike progress updates
+  - fines
+  - stage-based SMS templates
+- Extended the recipient model with:
+  - first name
+  - notifications enabled
+  - batch link
+  - team leader flag
+  - notes
+- Extended message records so workflow-triggered SMS can carry bike, stage, category, urgency, and template metadata.
+- Added backend services and API routes for:
+  - `/api/batches`
+  - `/api/bikes`
+  - `/api/bikes/:id/progress`
+  - `/api/fines`
+  - `/api/templates`
+  - `/api/workflow/options`
+- Added default Kinyarwanda workflow templates and automatic workflow notification behavior after progress or fine saves.
+- Added new dashboard pages:
+  - `/bikes.html`
+  - `/batches.html`
+- Reworked the Recipients page to capture richer rider details and batch assignment.
+- Reworked the SMS page to include stage-based workflow template management in addition to manual send, schedules, history, and SMS settings.
+- Added microservice planning files for future external automation:
+  - `fllee-backend/microservices/irembo-fines/PLAN.md`
+  - `fllee-backend/microservices/rura-authorization/PLAN.md`
+
+### Decisions made and why
+
+- Kept manual SMS and scheduled SMS intact while introducing a separate workflow layer, so the existing live messaging path remains usable during the transition.
+- Used stage, category, and urgency as the template selection key because that matches the operational workflow better than the old generic message categories alone.
+- Stored workflow templates in the main Fleebee database so the operator can manage them from the dashboard without editing files.
+- Left the external Irembo and RURA automation at the planning stage only for now, because those integrations need separate credential, scraping, and reliability decisions.
+
+### Verification
+
+- Ran syntax checks successfully on:
+  - `fllee-backend/src/app.js`
+  - `fllee-backend/src/server.js`
+  - `fllee-backend/src/services/biker-service.js`
+  - `fllee-backend/src/services/bike-service.js`
+  - `fllee-backend/src/services/template-service.js`
+  - `flee-frontend/public/assets/js/app.js`
+- Ran `npm run prisma:migrate` successfully on Saturday, July 18, 2026, which synced the SQLite schema and regenerated the Prisma client.
+
+### Current state
+
+- Fleebee now has the core data model and UI foundations for recipient batches, bikes, workflow progress, fines, and stage-based automatic SMS templates.
+- The new workflow pages and APIs exist locally and the database schema is updated locally.
+- The work has not yet been synced to the home computer `.50` in this session.
+- Bulk batch messaging, recurring payment automation, and external Irembo or RURA checking are still future phases.
+
+### Next steps
+
+- Run live browser verification against the new pages and flows after syncing to `.50`.
+- Test the full bike-progress-to-SMS path using one active recipient number first.
+- Decide whether to add separate batch broadcast tools next or deepen the bike progress and fines workflow first.
+
+## 2026-07-18
+
+### What changed
+
+- Reorganized the dashboard sidebar to match the workflow work already implemented instead of the older SMS-first structure.
+- Moved workflow pages earlier in the menu and renamed the groups to:
+  - `Workflow`
+  - `Messaging`
+  - `Operations`
+  - `Access`
+- Renamed key navigation labels for clarity:
+  - `Send SMS` to `SMS & Templates`
+  - `Bikes / Applications` to `Bike Workflow`
+  - `Gateway` to `Phone Gateway`
+  - `Bundles` to `Bundle Check`
+- Updated the related browser titles and page headings so the new navigation wording stays consistent.
+
+### Decisions made and why
+
+- Put the workflow pages ahead of messaging because bikes, recipients, batches, progress, and fines now form the main operating flow.
+- Kept the routes unchanged while improving labels, so the dashboard becomes clearer without forcing backend or deployment changes.
+- Used `SMS & Templates` because that page now handles both manual messaging and workflow template setup.
+
+### Current state
+
+- The sidebar now reflects the current Fleebee product shape more accurately.
+- Workflow pages are easier to find, and the naming is more consistent with the biker workflow requirements.
+
+### Next steps
+
+- Consider adding a workflow-aware overview summary so the landing page matches the new navigation emphasis.
+- Decide later whether fines deserve their own dedicated menu page or should remain inside the bike workflow page.
+
+## 2026-07-18
+
+### What changed
+
+- Improved the batch-to-recipient workflow so a newly created batch now hands off directly into the recipient form.
+- Added an `Add Recipients` action to each batch row on the batches page.
+- Added a recipient-page batch context banner so the chosen batch stays visible and preselected while adding multiple related riders.
+
+### Decisions made and why
+
+- Used a direct page handoff with the saved batch id in the URL so the flow stays simple and works immediately on the live dashboard.
+- Kept the existing recipient batch selector, but now prefill it from the chosen batch context instead of forcing the operator to reselect it each time.
+
+### Current state
+
+- Creating a batch now moves smoothly into adding riders for that same batch.
+- The recipient form keeps the selected batch ready until the operator clears that batch target.
+
+### Next steps
+
+- Consider showing the related recipients directly on the batch page as the next refinement.
+
+## 2026-07-18
+
+### What changed
+
+- Updated the handoff to reflect the current workflow-oriented dashboard structure already introduced in the July 18 work:
+  - `Overview`
+  - `Workflow -> Recipients, Bike Workflow, Batches`
+  - `Messaging -> SMS & Templates, Scheduled SMS, Message History`
+  - `Operations -> Phone Gateway, Bundle Check`
+  - `Access -> Admin Settings`
+- Recorded the current batch handoff behavior more clearly: after creating a batch, the intended next operator step is adding the related recipients under that batch.
+- Added the next requested UI reorganization to the handoff so it is not lost in later work: templates should move out of the mixed SMS page into their own dedicated area.
+
+### Decisions made and why
+
+- Kept this update documentation-only so the progress file stays aligned with the work already captured in the surrounding July 18 entries.
+- Documented the requested SMS/templates separation as pending work rather than marking it complete before the UI split is actually built.
+
+### Current state
+
+- The progress file now reflects the current workflow menu direction more explicitly.
+- Batch creation and recipient onboarding are documented as part of the same operator flow.
+- The mixed `SMS & Templates` setup is now clearly recorded as the next dashboard cleanup item.
+
+### Next steps
+
+- Create a dedicated `Templates` page and menu item.
+- Keep manual `Send SMS`, `Scheduled SMS`, and `Message History` focused on separate messaging jobs.
+- Update this handoff again once that UI split is implemented.
+
+## 2026-07-21
+
+### What changed
+
+- Reworked the manual SMS compose flow so `New SMS` now supports two recipient tabs:
+  - `Current setup`
+  - `Send using batch`
+- Added a message-body source chooser in the compose modal:
+  - `Custom message`
+  - `Presaved template`
+- Wired template sends to render per biker in the browser so placeholders such as `{{firstName}}`, `{{plate}}`, and `{{batchName}}` can be used for manual sends and batch sends.
+- Made template-based manual sends carry template and workflow metadata into queued message records.
+- Added admin-controlled SMS route mode settings:
+  - `Real mode` routes to the selected active biker numbers
+  - `Testing mode` routes every SMS to the configured test number `0788690545`
+- Changed backend phone-state config loading so the live/test routing mode comes from saved settings instead of only env defaults.
+- Updated Admin Settings UI to show the routing mode selector and the fixed testing target number.
+
+### Decisions made and why
+
+- Kept the new batch-send flow inside the existing compose modal instead of creating a separate page, because the operator asked for the change specifically when clicking `Send SMS`.
+- Kept the testing target fixed to `0788690545` so testing mode gives a clear safety guarantee even when a saved biker is selected.
+- Used DB-backed admin settings for route mode so the dashboard, backend queue logic, and phone status all reflect the same current behavior without editing env files.
+- Avoided live SMS execution during implementation because real rider numbers are now in the system.
+
+### Current state
+
+- Manual sends can now target either explicitly selected active bikers or all active registered bikers inside a chosen batch.
+- Operators can choose between a custom SMS body and a saved template before queueing or scheduling messages.
+- Admin Settings can now switch routing safely between real delivery and forced test delivery to `0788690545`.
+- Syntax checks passed for the updated frontend compose logic and backend settings services.
+
+### Next steps
+
+- Open the dashboard in the browser and verify the new modal flow visually on:
+  - `SMS & Templates`
+  - `Admin Settings`
+- Confirm that switching to `Testing mode` updates the visible route summary immediately and that queued messages show the test target number.
+- If needed later, extend scheduled-template handling further so even more workflow-specific placeholders can be sourced from richer backend context.
+
+## 2026-07-21
+
+### What changed
+
+- Fixed a follow-up UI gap after the first deploy:
+  - updated the duplicated compose modal on `Overview`
+  - updated the duplicated compose modal on `Message History`
+  - updated the duplicated compose modal on `Scheduled SMS`
+  - updated the inline `Admin Settings` block inside `SMS & Templates`
+- Replaced the SMS route mode dropdown with large toggle-style buttons for:
+  - `Real mode`
+  - `Testing mode`
+- Synced those corrected frontend files to the home computer over the verified public SSH route.
+
+### Decisions made and why
+
+- Kept the same backend behavior and corrected the duplicated frontend surfaces instead, because the missing UI came from older page-specific HTML copies rather than from the routing logic itself.
+- Switched the mode control from a dropdown to large toggle buttons because the operator wanted a more visible and safer control for live-vs-test routing.
+
+### Current state
+
+- The red `New SMS` button on the overview flow should now open the new two-tab compose modal instead of the older one.
+- Both the standalone `Admin Settings` page and the inline `Admin Settings` area on `SMS & Templates` should now show the large `Real mode` / `Testing mode` toggle.
+- Frontend-only corrections were synced without another backend behavior change.
+
+### Next steps
+
+- Hard refresh the browser page if the older modal or old admin controls still appear from cache.
+- Verify the updated UI on:
+  - `/`
+  - `/sms/index.html`
+  - `/admin.html`
+
+## 2026-07-21
+
+### What changed
+
+- Replaced the large `Real mode` / `Testing mode` segmented selector with a true toggle-switch control in:
+  - the standalone `Admin Settings` page
+  - the inline `Admin Settings` section on `SMS & Templates`
+- Updated the frontend logic so the switch:
+  - maps off -> `registered-bikers`
+  - maps on -> `test-routing`
+  - updates the visible mode label and help text live before saving
+
+### Decisions made and why
+
+- Switched to a true toggle because the operator explicitly wanted a switch-style control rather than a two-button selector.
+- Kept the same backend values and save path so this remains a presentation change only and does not alter the tested routing behavior.
+
+### Current state
+
+- The route mode should now appear as a real switch with clear `Real` and `Testing` labels.
+- Saving still persists the same safe behavior:
+  - real mode sends to registered biker numbers
+  - testing mode forces all SMS to `0788690545`
+
+### Next steps
+
+- Hard refresh `/sms/index.html` and `/admin.html` if the old selector still appears from browser cache.
+
+## 2026-07-21
+
+### What changed
+
+- Updated the compose SMS modal preview so it now shows the final SMS text that would actually be delivered:
+  - saved-template preview now includes the appended admin signature
+  - custom-message preview now also stays visible and includes the appended admin signature
+- Added a live route-status pill beside the `Send SMS` and `Cancel` buttons:
+  - green for `Live mode`
+  - red for `Testing mode`
+  - testing mode also shows the forced test number
+- Synced the updated frontend files to keep this change frontend-only and avoid touching live send behavior.
+
+### Decisions made and why
+
+- Mirrored the backend signature-appending behavior in the frontend preview so the operator can see the exact final SMS text before queueing it.
+- Kept the red/green mode signal inside the modal action row so the current route mode is visible at the last confirmation moment.
+
+### Current state
+
+- In the compose modal, the preview area should now remain visible for both:
+  - `Presaved template`
+  - `Custom message`
+- The preview should include the configured signature automatically whenever the message body has content.
+- The action row should now show an immediate route indicator:
+  - `Live mode` in green
+  - `Testing mode: 0788690545` in red when test routing is active
+
+### Next steps
+
+- Hard refresh the browser if the modal still shows the old preview behavior from cache.
+- Verify this on the compose modal opened from `/`, `/sms/index.html`, `/messages.html`, and `/scheduled.html`.
+
+## 2026-07-21
+
+### What changed
+
+- Fixed the admin route-mode toggle so it can actually be switched before saving.
+- Synced the corrected `app.js` to the real live frontend path on the home computer:
+  - `~/fleebee/current/flee-frontend/public/assets/js/app.js`
+
+### Decisions made and why
+
+- Kept the existing switch design and fixed the render logic instead of redesigning the control.
+- The root cause was frontend state handling:
+  - clicking the switch changed the hidden route-mode field
+  - the next render immediately overwrote that draft value with the old saved mode
+  - the switch therefore snapped back and looked untoggleable
+
+### Current state
+
+- The live home-computer frontend now contains the `preserveDraft` admin-toggle fix.
+- The switch should stay on the chosen position long enough for the operator to review it and press `Save SMS Settings`.
+
+### Next steps
+
+- Hard refresh `/admin.html` or `/sms/index.html` once so the browser loads the new `app.js`.
+- After refresh, toggle the switch and then click `Save SMS Settings` to persist the chosen mode.
+
+## 2026-07-21
+
+### What changed
+
+- Fixed a second admin-toggle issue caused by the 5-second live auto-refresh loop.
+- The admin settings form now keeps unsaved route-mode and signature changes in a local browser draft until `Save SMS Settings` is pressed.
+- Synced the corrected frontend logic to the live home-computer path again:
+  - `~/fleebee/current/flee-frontend/public/assets/js/app.js`
+
+### Decisions made and why
+
+- Kept live auto-refresh enabled for the rest of Fleebee, but stopped it from overwriting unsaved admin settings edits.
+- This was safer than disabling refresh globally because dashboard, queue, and phone-state pages still depend on frequent live updates.
+
+### Current state
+
+- Toggling to `Testing mode` should now stay visible in the form instead of snapping back to `Real mode` before save.
+- The admin settings notice now warns when there are unsaved SMS settings changes in the browser.
+
+### Next steps
+
+- Hard refresh the current Fleebee tab so it loads the new JavaScript.
+- Toggle the switch again, confirm it stays where selected, then press `Save SMS Settings`.
+
+## 2026-07-21
+
+### What changed
+
+- Refined the compose modal for testing-mode safety and clarity:
+  - removed the signature text from the note above the preview
+  - kept the signature only inside the final preview text itself
+  - changed the modal route wording to show `Testing mode` or `Active mode`
+  - changed testing-mode batch/multi-recipient sends so only 1 SMS is queued, using the first selected biker's values
+- Added a browser leave-page warning when SMS settings have unsaved admin changes.
+- Updated the admin save success message so it explicitly says whether `Testing mode` or `Real mode` is now saved.
+- Synced the updated frontend logic to the live home-computer path:
+  - `~/fleebee/current/flee-frontend/public/assets/js/app.js`
+
+### Decisions made and why
+
+- Kept the one-SMS testing-mode rule in the frontend compose flow so the operator can safely preview one test message even when a whole batch is selected.
+- Added the unsaved-change warning because the live saved backend value was still `registered-bikers`, which showed that the earlier page flow could leave testing-mode edits unsaved when the operator navigated away.
+
+### Current state
+
+- In testing mode, the compose modal now explains that only 1 SMS will be queued to the test number.
+- The preview still uses the first selected biker's values so the operator can see exactly what that one test SMS will look like.
+- As of `2026-07-21`, the currently saved live backend mode was verified as:
+  - `smsGatewayMode = registered-bikers`
+  This means testing mode is not active yet on the server until the operator saves it.
+
+### Next steps
+
+- Hard refresh the Fleebee tab so the newest frontend JS is loaded.
+- Toggle `Testing mode`, confirm the notice says there are unsaved changes, then press `Save SMS Settings`.
+- After save, the success message should explicitly confirm that `Testing mode` is now saved.
