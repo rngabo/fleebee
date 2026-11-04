@@ -148,8 +148,10 @@ function isReview(item) {
 }
 
 function bikerOptions(selectedId) {
-  return `<option value="">— Select biker —</option>${registeredBikers.map((biker) =>
-    `<option value="${escapeHtml(biker.id)}"${biker.id === selectedId ? " selected" : ""}>${escapeHtml(biker.name)}</option>`).join("")}`;
+  const option = (biker) => `<option value="${escapeHtml(biker.id)}"${biker.id === selectedId ? " selected" : ""}>${escapeHtml(biker.name)}${biker.status === "inactive" ? " (inactive)" : ""}</option>`;
+  const active = registeredBikers.filter((biker) => biker.status !== "inactive");
+  const inactive = registeredBikers.filter((biker) => biker.status === "inactive");
+  return `<option value="">— Select biker —</option>${active.map(option).join("")}${inactive.length ? `<optgroup label="No longer riding (were riding in this period)">${inactive.map(option).join("")}</optgroup>` : ""}`;
 }
 
 function paymentsLink(name) {
@@ -614,9 +616,12 @@ async function undoSkip(tr) {
   refreshRow(tr);
 }
 
-async function loadBikers() {
+// The riders you can pick depend on the statement's period: those who started on or before its end, and inactive
+// ones only if they were around during it.
+async function loadBikers(period) {
   try {
-    registeredBikers = (await fetchJson("/api/bank-statements/bikers")).items || [];
+    const query = period?.start && period?.end ? `?from=${encodeURIComponent(String(period.start).slice(0, 10))}&to=${encodeURIComponent(String(period.end).slice(0, 10))}` : "";
+    registeredBikers = (await fetchJson(`/api/bank-statements/bikers${query}`)).items || [];
   } catch (error) {
     setNotice(`Registered bikers could not be loaded: ${error.message}`, "error");
   }
@@ -802,6 +807,7 @@ async function uploadStatement(event) {
     const formData = new FormData();
     formData.append("file", file, file.name);
     const payload = await fetchJson("/api/bank-statements/upload", { method: "POST", body: formData });
+    await loadBikers({ start: payload.period_start, end: payload.period_end });
     if (payload.already_processed) {
       renderStatement(payload, `${payload.display_name || "Saved statement"}.`);
       setNotice(`This file was uploaded before and is not finished yet. Reopened ${payload.display_name || "the saved statement"} where you left off.`, "success");
@@ -865,6 +871,7 @@ async function openStatement(id) {
   setNotice("Opening saved statement…");
   try {
     const detail = await fetchJson(`/api/bank-statements/${encodeURIComponent(id)}`);
+    await loadBikers({ start: detail.period_start, end: detail.period_end });
     clearResults();
     fileInput.value = "";
     $("statementFileLabel").textContent = "Choose a Bank of Kigali PDF";

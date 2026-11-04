@@ -642,7 +642,9 @@ function createAppServer() {
       }
 
       if (req.method === "GET" && url.pathname === "/api/bank-statements/bikers") {
-        const response = await listRegisteredBikers();
+        const from = url.searchParams.get("from");
+        const to = url.searchParams.get("to");
+        const response = await listRegisteredBikers(/^\d{4}-\d{2}-\d{2}$/.test(from || "") && /^\d{4}-\d{2}-\d{2}$/.test(to || "") ? { start: from, end: to } : undefined);
         sendJson(res, response.statusCode, response.body);
         return;
       }

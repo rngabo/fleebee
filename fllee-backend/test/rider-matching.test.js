@@ -163,3 +163,59 @@ test("a sender that fits several riders does not make a row ambiguous when the l
   assert.equal(row.suggested_biker_id, undefined);
   assert.equal(row.review_reason, "not-registered-biker");        // not "Several riders fit"
 });
+
+// ---------- who can be selected depends on the statement's period ----------
+
+const member = (id, sourceName, sourceStatus, startDate, bikerId = null, sourcePhone = "0780000000") =>
+  ({ id, sourceName, sourceStatus, startDate: new Date(`${startDate}T00:00:00Z`), bikerId, sourcePhone });
+
+async function ridersFor(period, members, lastPayments) {
+  const originals = { member: prisma.dataMember, payment: prisma.dataPayment, biker: prisma.biker };
+  prisma.dataMember = { findMany: async () => members, count: async () => members.length };
+  prisma.dataPayment = { groupBy: async () => lastPayments.map(([dataMemberId, date]) => ({ dataMemberId, _max: { paymentDate: new Date(`${date}T00:00:00Z`) } })) };
+  prisma.biker = { findMany: async () => [{ id: "bk-active", name: "Hakorimana", firstName: "Benjamin", phoneNumber: "0780390524" }] };
+  try {
+    return (await bank.listRegisteredBikers(period)).body.items;
+  } finally {
+    prisma.dataMember = originals.member;
+    prisma.dataPayment = originals.payment;
+    prisma.biker = originals.biker;
+  }
+}
+
+test("a rider who left before the statement starts is not offered, one who was around during it is (inactive ones included)", async () => {
+  const members = [
+    member("m-eric", "Eric March", "inactive", "2026-03-11"),                          // left in June
+    member("m-gilbert", "Turajyayo Gilbert", "inactive", "2026-07-20"),                // started in July, left in September
+    member("m-active", "Hakorimana Benjamin", "active", "2026-07-20", "bk-active"),
+    member("m-late", "Shumbusho Josue", "active", "2026-10-05")                        // starts in October
+  ];
+  const payments = [["m-eric", "2026-06-30"], ["m-gilbert", "2026-09-21"], ["m-active", "2026-11-02"], ["m-late", "2026-10-31"]];
+
+  const aug = await ridersFor({ start: "2026-08-01", end: "2026-11-04" }, members, payments);
+  const names = aug.map((rider) => rider.name);
+  assert.ok(names.includes("Turajyayo Gilbert"), "Gilbert started in July, so he is selectable for an August statement");
+  assert.ok(!names.includes("Eric March"), "Eric left in June, so he is not offered for an August statement");
+  assert.ok(names.includes("Hakorimana Benjamin") && names.includes("Shumbusho Josue"));
+  assert.equal(aug.find((rider) => rider.name === "Turajyayo Gilbert").status, "inactive");
+  assert.equal(aug.find((rider) => rider.name === "Turajyayo Gilbert").id, "m:m-gilbert");   // no biker record: addressed by member id
+  assert.deepEqual(aug.map((rider) => rider.status), ["active", "active", "inactive"]);      // active riders first
+
+  // for a March-June statement only Eric can be selected: everyone else started in July or later
+  const march = await ridersFor({ start: "2026-03-01", end: "2026-06-30" }, members, payments);
+  assert.deepEqual(march.map((rider) => rider.name), ["Eric March"]);
+});
+
+test("a rider who started after the statement ends is not offered, and without a period only active riders are", async () => {
+  const members = [member("m-late", "Shumbusho Josue", "active", "2026-10-05"), member("m-old", "Old Rider", "inactive", "2026-03-11")];
+  const sepEnd = await ridersFor({ start: "2026-08-01", end: "2026-09-30" }, members, [["m-old", "2026-08-15"]]);
+  assert.deepEqual(sepEnd.map((rider) => rider.name), ["Old Rider"]);
+  const noPeriod = await ridersFor(undefined, members, [["m-old", "2026-08-15"]]);
+  assert.deepEqual(noPeriod.map((rider) => rider.name), ["Shumbusho Josue"]);
+});
+
+test("an inactive rider is still offered up to a month after their last payment", () => {
+  const rider = { sourceStatus: "inactive", startDate: new Date("2026-03-11T00:00:00Z") };
+  assert.equal(bank.wasRiderDuring(rider, "2026-07-05", { start: "2026-08-01", end: "2026-11-04" }), true);    // 27 days earlier
+  assert.equal(bank.wasRiderDuring(rider, "2026-06-30", { start: "2026-08-01", end: "2026-11-04" }), false);   // 32 days earlier
+});

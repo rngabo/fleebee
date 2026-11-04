@@ -121,19 +121,76 @@ function bikerDisplayName(biker) {
   return [biker.name, biker.firstName].map((part) => String(part ?? "").trim()).filter(Boolean).join(" ");
 }
 
-// Riders you can sync payments for: the active riders of the sheet's Setup tab (linked to a Fleebee biker).
-// Before any Setup data has been imported, every biker is offered.
-async function eligibleBikers() {
+// Riders you can tie a deposit to. They come from the sheet's Setup tab, and depend on the statement's period:
+//  - a rider who started after the statement ends cannot have deposits in it;
+//  - an active rider who started on or before the end is eligible;
+//  - an inactive rider is still eligible if they were around during the period: started on or before its end and
+//    last paid within a month before it starts (so a rider who left in June is not offered for an Aug-Nov statement).
+// Without a period only today's active riders are offered. Before any Setup data is imported, every biker is offered.
+const GRACE_DAYS = 31;
+
+function splitRiderName(fullName) {
+  const parts = String(fullName ?? "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  return { name: parts.shift() || "", firstName: parts.join(" ") };
+}
+
+function wasRiderDuring(member, lastPaymentIso, period) {
+  const active = String(member.sourceStatus).toLowerCase() === "active";
+  const startIso = member.startDate ? member.startDate.toISOString().slice(0, 10) : "";
+  if (!period?.start || !period?.end) return active;
+  if (startIso && startIso > period.end) return false;
+  if (active) return true;
+  const lastSeen = lastPaymentIso || startIso;
+  if (!lastSeen) return false;
+  const until = new Date(Date.parse(`${lastSeen}T00:00:00Z`) + GRACE_DAYS * 86400000).toISOString().slice(0, 10);
+  return until >= period.start;
+}
+
+async function eligibleBikers(period) {
   const members = await prisma.dataMember.findMany({
-    where: { isPresent: true, sourceStatus: "active", bikerId: { not: null } },
-    select: { bikerId: true }
+    where: { isPresent: true },
+    select: { id: true, sourceName: true, sourceStatus: true, sourcePhone: true, startDate: true, bikerId: true }
   });
-  const hasSetup = (await prisma.dataMember.count({ where: { isPresent: true } })) > 0;
-  return prisma.biker.findMany({
-    where: hasSetup ? { id: { in: members.map((member) => member.bikerId) } } : {},
-    select: { id: true, name: true, firstName: true, phoneNumber: true }
+  if (!members.length) {
+    return (await prisma.biker.findMany({ select: { id: true, name: true, firstName: true, phoneNumber: true } }))
+      .map((biker) => ({ ...biker, status: "active" }));
+  }
+  const lastPayments = await prisma.dataPayment.groupBy({ by: ["dataMemberId"], where: { isPresent: true }, _max: { paymentDate: true } });
+  const lastBy = new Map(lastPayments.map((row) => [row.dataMemberId, row._max.paymentDate ? row._max.paymentDate.toISOString().slice(0, 10) : ""]));
+  const chosen = members.filter((member) => wasRiderDuring(member, lastBy.get(member.id), period));
+  const linked = chosen.map((member) => member.bikerId).filter(Boolean);
+  const bikers = linked.length
+    ? await prisma.biker.findMany({ where: { id: { in: linked } }, select: { id: true, name: true, firstName: true, phoneNumber: true } })
+    : [];
+  const bikerById = new Map(bikers.map((biker) => [biker.id, biker]));
+  return chosen.map((member) => {
+    const biker = bikerById.get(member.bikerId);
+    const parts = biker
+      ? { name: biker.name, firstName: biker.firstName, phoneNumber: biker.phoneNumber }
+      : { ...splitRiderName(member.sourceName), phoneNumber: member.sourcePhone || "" };
+    return {
+      id: member.bikerId || `m:${member.id}`,
+      ...parts,
+      status: String(member.sourceStatus).toLowerCase() === "active" ? "active" : "inactive",
+      since: member.startDate ? member.startDate.toISOString().slice(0, 10) : null,
+      memberId: member.id
+    };
   });
 }
+
+// A rider by id: a Fleebee biker, or (for riders without one, e.g. inactive ones) a Setup member "m:<id>".
+async function resolveRider(id) {
+  const key = String(id || "");
+  if (key.startsWith("m:")) {
+    const member = await prisma.dataMember.findUnique({ where: { id: key.slice(2) }, select: { sourceName: true } });
+    return member ? { id: key, ...splitRiderName(member.sourceName) } : null;
+  }
+  return key ? prisma.biker.findUnique({ where: { id: key }, select: { id: true, name: true, firstName: true } }) : null;
+}
+
+const periodOf = (source) => (source?.period_start && source?.period_end
+  ? { start: String(source.period_start).slice(0, 10), end: String(source.period_end).slice(0, 10) }
+  : null);
 
 // Compare a name from the narration with the registered riders: a word equal to a rider's last name (the
 // first word of their name) is a match; failing that, a word of 4+ letters equal to their first name.
@@ -185,12 +242,12 @@ async function listAliases() {
   const response = await requestService("/api/v1/aliases");
   if (response.statusCode >= 400) return response;
   const riders = new Set((await eligibleBikers()).map((biker) => biker.id));
-  return { statusCode: 200, body: { items: (response.body?.items || []).map((alias) => ({ ...alias, rider_available: riders.has(alias.biker_id) })) } };
+  return { statusCode: 200, body: { items: (response.body?.items || []).map((alias) => ({ ...alias, rider_available: riders.has(alias.biker_id) || String(alias.biker_id).startsWith("m:") })) } };
 }
 
 async function saveAlias(payload) {
   const name = String(payload?.name || "").trim();
-  const biker = payload?.bikerId ? await prisma.biker.findUnique({ where: { id: String(payload.bikerId) }, select: { id: true, name: true, firstName: true } }) : null;
+  const biker = payload?.bikerId ? await resolveRider(payload.bikerId) : null;
   if (!name || !aliasKey(name)) return { statusCode: 400, body: { error: "There is no payer name to remember." } };
   if (!biker) return { statusCode: 404, body: { error: "The selected rider was not found." } };
   return requestService("/api/v1/aliases", {
@@ -209,7 +266,7 @@ async function removeAlias(aliasId) {
 // The one that fits a registered rider decides; if none fits, the last text is simply shown as the name.
 async function markUnregisteredDepositors(body) {
   if (!Array.isArray(body?.transactions)) return body;
-  const bikers = await eligibleBikers();
+  const bikers = await eligibleBikers(periodOf(body));
   const riders = bikers.map((biker) => ({
     id: biker.id,
     name: bikerDisplayName(biker),
@@ -283,7 +340,7 @@ async function ridersOwed() {
     prisma.dataMember.findMany({ where: { isPresent: true } }),
     prisma.dataPayment.findMany({ where: { isPresent: true }, select: { dataMemberId: true, paymentDate: true, amountRwf: true, referenceNote: true } })
   ]);
-  const bikerOfMember = new Map(members.filter((member) => member.bikerId).map((member) => [member.id, member.bikerId]));
+  const bikerOfMember = new Map(members.map((member) => [member.id, member.bikerId || `m:${member.id}`]));
   const now = new Date(Date.now() + 2 * 3600 * 1000);
   const owed = new Map();
   for (let back = 0; back < 5; back += 1) {
@@ -296,18 +353,20 @@ async function ridersOwed() {
   return owed;
 }
 
-async function listRegisteredBikers() {
-  const bikers = await eligibleBikers();
+async function listRegisteredBikers(period) {
+  const bikers = await eligibleBikers(period);
   const owed = await ridersOwed().catch(() => new Map());
   const items = bikers.map((biker) => ({
     id: biker.id,
     name: bikerDisplayName(biker),
     phone: String(biker.phoneNumber ?? "").trim(),
+    status: biker.status || "active",
+    since: biker.since || null,
     owed: owed.get(biker.id) || {}
   }))
     .filter((biker) => biker.name)
-    .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
-  return { statusCode: 200, body: { items } };
+    .sort((a, b) => (a.status === b.status ? a.name.localeCompare(b.name, "en", { sensitivity: "base" }) : a.status === "active" ? -1 : 1));
+  return { statusCode: 200, body: { items, period: period || null } };
 }
 
 // Once an entry is in the sheet (or skipped) its outcome is recorded on the saved statement entry.
@@ -457,7 +516,7 @@ async function auditStatementAgainstSheet(statementId, { write = false } = {}) {
     return { statusCode: 422, body: { error: "This statement has no period, so there is nothing to compare the sheet with." } };
   }
 
-  const riders = await eligibleBikers();
+  const riders = await eligibleBikers(periodOf(statement));
   const riderNames = new Map(riders.map((biker) => [biker.id, bikerDisplayName(biker)]));
   const entries = depositsOf(statement, riderNames);
 
@@ -521,7 +580,7 @@ async function reopenSkippedEntries(statementId, { onlyBulk = true } = {}) {
 async function reopenUnmatchedRecorded(statementId) {
   const audit = await auditStatementAgainstSheet(statementId, { write: false });
   if (audit.statusCode >= 400) return audit;
-  const riders = await eligibleBikers();
+  const riders = await eligibleBikers({ start: String(audit.body.period.start).slice(0, 10), end: String(audit.body.period.end).slice(0, 10) });
   const idByName = new Map(riders.map((rider) => [auditNameKey(bikerDisplayName(rider)), rider.id]));
   let reopened = 0;
   for (const entry of audit.body.recordedWithoutRow) {
@@ -589,7 +648,7 @@ async function syncBankPayment(payload) {
   if (!bikerId) return { statusCode: 400, body: { error: "Select a registered biker before syncing." } };
   if (!sheetConfigured()) return { statusCode: 503, body: { error: "Google Sheet syncing is not configured." } };
 
-  const biker = await prisma.biker.findUnique({ where: { id: bikerId }, select: { name: true, firstName: true } });
+  const biker = await resolveRider(bikerId);
   if (!biker) return { statusCode: 404, body: { error: "The selected biker is no longer registered." } };
 
   // Payments only count on the dashboard for riders listed in the sheet's Setup tab; refuse others
@@ -610,7 +669,7 @@ async function syncBankPayment(payload) {
   if (payload?.statementId) {
     const detail = await getBankStatement(payload.statementId);
     if (detail.statusCode < 400) {
-      const riderNames = new Map((await eligibleBikers()).map((item) => [item.id, bikerDisplayName(item)]));
+      const riderNames = new Map((await eligibleBikers(periodOf(detail.body))).map((item) => [item.id, bikerDisplayName(item)]));
       statementEntries = depositsOf(detail.body, riderNames);
     }
   }
@@ -703,6 +762,7 @@ async function getBankStatement(statementId) {
 
 module.exports = {
   attachSourceStatements,
+  wasRiderDuring,
   reopenUnmatchedRecorded,
   similarNames,
   auditStatementAgainstSheet,

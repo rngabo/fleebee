@@ -2782,3 +2782,18 @@ The big recent wins were bundle automation, persistent ADB recovery on `.50`, ni
   8 added (before the fix: all 40 were added). Read-only check of the real sheet: 154 rows judged, 90 matched,
   5 amount differences, 1 not in bank, 8 deposits missing, 5 deposits wrongly marked "already in sheet".
 - Tests: sheet-audit 17, fllee-backend 51, bank service 43. Not deployed.
+
+## 2026-11-04 — Riders offered for a statement depend on its period (inactive riders included)
+
+- `GET /api/bank-statements/bikers?from=&to=` (page sends the open statement's period; loaded when a statement is
+  opened or uploaded). Rule (`wasRiderDuring`): a rider who started after the period's end is not offered; an active
+  rider who started on or before the end is; an inactive rider is offered if they started on or before the end and
+  last paid within 31 days before the period starts (so a rider who left in June is not offered for Aug-Nov).
+  Without a period only active riders are offered; before Setup data exists every biker is.
+- The list is built from the Setup riders, because inactive riders have no Fleebee biker record: they are addressed as
+  `m:<member id>` (name from the sheet). Dropdown: active riders first, then a group "No longer riding (were riding in
+  this period)" marked "(inactive)". Name matching, remembered payers, Sync (rider resolved by `resolveRider`),
+  the sheet check and "reopen unmatched" all use the same period-aware list.
+- Real data: Aug-Nov -> 14 riders (Gilbert and Habarurema inactive, Pacifique left out); Mar-Oct -> 15 (Pacifique in);
+  no statement -> the 12 active ones. Aug-Nov "Gilbert" deposits now match Turajyayo Gilbert and Sync finds their rows.
+- Tests: rider-matching 12 (incl. the Gilbert/Eric examples), fllee-backend 54, bank service 43. Not deployed.
