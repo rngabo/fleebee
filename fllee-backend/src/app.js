@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
+const { timingSafeEqual } = require("node:crypto");
 
 const { buildBrowserConfigScript } = require("./config/browser-config");
 const { env } = require("./config/env");
@@ -18,6 +19,36 @@ const {
   updateBike
 } = require("./services/bike-service");
 const { buildDashboardResponse } = require("./services/dashboard-service");
+const {
+  applyDataSyncRun,
+  createDataSyncRun,
+  failDataSyncRun,
+  getDataDashboard,
+  getDataPayments,
+  saveDataSyncIntervalDays
+} = require("./services/data-sync-service");
+const {
+  getDataSyncRunnerState,
+  startDataSyncProcess
+} = require("./services/data-sync-runner-service");
+const {
+  getBankStatement,
+  listBankStatements,
+  listRegisteredBikers,
+  syncBankPayment,
+  uploadBankStatement
+} = require("./services/bank-statement-service");
+const {
+  completeFineCheckRun,
+  createFineCheckRun,
+  getContraventions,
+  recordFineCheckTarget,
+  saveFineMonitorFrequency
+} = require("./services/fine-monitor-service");
+const {
+  getFineMonitorRunnerState,
+  startFineMonitorProcess
+} = require("./services/fine-monitor-runner-service");
 const {
   claimNextMessage,
   createMessageRecord,
@@ -162,6 +193,45 @@ function sendApiAuthError(res, reason) {
   });
 }
 
+function isFineMonitorAuthorized(req) {
+  const expected = env.FINE_MONITOR_SERVICE_TOKEN;
+  const authorization = String(req.headers.authorization || "");
+  const supplied = authorization.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : "";
+
+  if (!expected || !supplied) {
+    return false;
+  }
+
+  const expectedBuffer = Buffer.from(expected);
+  const suppliedBuffer = Buffer.from(supplied);
+  return expectedBuffer.length === suppliedBuffer.length
+    && timingSafeEqual(expectedBuffer, suppliedBuffer);
+}
+
+function isDataSyncAuthorized(req) {
+  const expected = env.DATA_SYNC_SERVICE_TOKEN;
+  const authorization = String(req.headers.authorization || "");
+  const supplied = authorization.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : "";
+
+  if (!expected || !supplied) return false;
+  const expectedBuffer = Buffer.from(expected);
+  const suppliedBuffer = Buffer.from(supplied);
+  return expectedBuffer.length === suppliedBuffer.length
+    && timingSafeEqual(expectedBuffer, suppliedBuffer);
+}
+
+function isFineMonitorApiPath(pathname) {
+  return pathname.startsWith("/api/internal/fine-monitor/v1/");
+}
+
+function isDataSyncApiPath(pathname) {
+  return pathname.startsWith("/api/internal/data-sync/v1/");
+}
+
 function createAppServer() {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
@@ -215,6 +285,93 @@ function createAppServer() {
         sendJson(res, 200, {
           loggedOut: true
         });
+        return;
+      }
+
+      if (isFineMonitorApiPath(url.pathname)) {
+        if (!env.FINE_MONITOR_SERVICE_TOKEN) {
+          sendJson(res, 503, {
+            error: "Fine monitor integration is not configured."
+          });
+          return;
+        }
+
+        if (!isFineMonitorAuthorized(req)) {
+          sendJson(res, 401, {
+            error: "Fine monitor service token is invalid."
+          });
+          return;
+        }
+
+        if (req.method === "POST" && url.pathname === "/api/internal/fine-monitor/v1/runs") {
+          const response = await createFineCheckRun(await readJson(req));
+          sendJson(res, response.statusCode, response.body);
+          return;
+        }
+
+        if (
+          req.method === "PUT"
+          && /^\/api\/internal\/fine-monitor\/v1\/runs\/[^/]+\/targets\/[^/]+$/.test(url.pathname)
+        ) {
+          const parts = url.pathname.split("/");
+          const runId = decodeURIComponent(parts[6] || "");
+          const bikeId = decodeURIComponent(parts[8] || "");
+          const response = await recordFineCheckTarget(runId, bikeId, await readJson(req));
+          sendJson(res, response.statusCode, response.body);
+          return;
+        }
+
+        if (
+          req.method === "POST"
+          && /^\/api\/internal\/fine-monitor\/v1\/runs\/[^/]+\/complete$/.test(url.pathname)
+        ) {
+          const runId = decodeURIComponent(url.pathname.split("/")[6] || "");
+          const response = await completeFineCheckRun(runId, await readJson(req));
+          sendJson(res, response.statusCode, response.body);
+          return;
+        }
+
+        sendJson(res, 404, {
+          error: "Fine monitor API route not found."
+        });
+        return;
+      }
+
+      if (isDataSyncApiPath(url.pathname)) {
+        if (!env.DATA_SYNC_SERVICE_TOKEN) {
+          sendJson(res, 503, { error: "Data sync integration is not configured." });
+          return;
+        }
+        if (!isDataSyncAuthorized(req)) {
+          sendJson(res, 401, { error: "Data sync service token is invalid." });
+          return;
+        }
+
+        if (req.method === "POST" && url.pathname === "/api/internal/data-sync/v1/runs") {
+          const response = await createDataSyncRun(await readJson(req));
+          sendJson(res, response.statusCode, response.body);
+          return;
+        }
+        if (
+          req.method === "PUT"
+          && /^\/api\/internal\/data-sync\/v1\/runs\/[^/]+\/data$/.test(url.pathname)
+        ) {
+          const runId = decodeURIComponent(url.pathname.split("/")[6] || "");
+          const response = await applyDataSyncRun(runId, await readJson(req));
+          sendJson(res, response.statusCode, response.body);
+          return;
+        }
+        if (
+          req.method === "POST"
+          && /^\/api\/internal\/data-sync\/v1\/runs\/[^/]+\/fail$/.test(url.pathname)
+        ) {
+          const runId = decodeURIComponent(url.pathname.split("/")[6] || "");
+          const response = await failDataSyncRun(runId, await readJson(req));
+          sendJson(res, response.statusCode, response.body);
+          return;
+        }
+
+        sendJson(res, 404, { error: "Data sync API route not found." });
         return;
       }
 
@@ -381,6 +538,85 @@ function createAppServer() {
         sendJson(res, 200, {
           items: await listFines()
         });
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/contraventions") {
+        sendJson(res, 200, {
+          ...await getContraventions(),
+          runner: getFineMonitorRunnerState()
+        });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/contraventions/refresh") {
+        const response = startFineMonitorProcess("manual");
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "PUT" && url.pathname === "/api/contraventions/frequency") {
+        const response = await saveFineMonitorFrequency((await readJson(req)).frequency);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/data/dashboard") {
+        sendJson(res, 200, {
+          ...await getDataDashboard(),
+          runner: getDataSyncRunnerState()
+        });
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/data/payments") {
+        sendJson(res, 200, {
+          ...await getDataPayments(),
+          runner: getDataSyncRunnerState()
+        });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/data/refresh") {
+        const response = startDataSyncProcess("manual");
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "PUT" && url.pathname === "/api/data/interval") {
+        const response = await saveDataSyncIntervalDays((await readJson(req)).intervalDays);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/bank-statements/upload") {
+        const response = await uploadBankStatement(req);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/bank-statements/bikers") {
+        const response = await listRegisteredBikers();
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/bank-statements/sync-payment") {
+        const response = await syncBankPayment(await readJson(req));
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/bank-statements") {
+        const response = await listBankStatements();
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "GET" && /^\/api\/bank-statements\/[^/]+$/.test(url.pathname)) {
+        const statementId = decodeURIComponent(url.pathname.split("/")[3] || "");
+        const response = await getBankStatement(statementId);
+        sendJson(res, response.statusCode, response.body);
         return;
       }
 

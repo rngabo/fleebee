@@ -8,7 +8,7 @@ REMOTE_SYSTEMD_DIR="${REMOTE_SYSTEMD_DIR:-~/.config/systemd/user}"
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=5)
 RSYNC_SSH="ssh ${SSH_OPTS[*]}"
 
-ssh "${SSH_OPTS[@]}" "$REMOTE_HOST" "mkdir -p $REMOTE_DIR/fllee-backend $REMOTE_DIR/flee-frontend/public $REMOTE_DIR/deploy/home-computer"
+ssh "${SSH_OPTS[@]}" "$REMOTE_HOST" "mkdir -p $REMOTE_DIR/fllee-backend $REMOTE_DIR/flee-frontend/public $REMOTE_DIR/fine-monitor $REMOTE_DIR/data-sync $REMOTE_DIR/deploy/home-computer"
 
 rsync -av \
   -e "$RSYNC_SSH" \
@@ -24,6 +24,22 @@ rsync -av \
   --delete \
   "$ROOT_DIR/flee-frontend/public/" \
   "$REMOTE_HOST:$REMOTE_DIR/flee-frontend/public/"
+
+rsync -av \
+  -e "$RSYNC_SSH" \
+  --delete \
+  --exclude '.env' \
+  --exclude 'node_modules' \
+  "$ROOT_DIR/fine-monitor/" \
+  "$REMOTE_HOST:$REMOTE_DIR/fine-monitor/"
+
+rsync -av \
+  -e "$RSYNC_SSH" \
+  --delete \
+  --exclude '.env' \
+  --exclude 'service-account.json' \
+  "$ROOT_DIR/data-sync/" \
+  "$REMOTE_HOST:$REMOTE_DIR/data-sync/"
 
 rsync -av \
   -e "$RSYNC_SSH" \

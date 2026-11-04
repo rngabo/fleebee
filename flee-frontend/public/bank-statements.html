@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fleebee Bank Statements</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1626'/%3E%3Cpath d='M19 5L9.5 14.5M19 5l-5.5 14-2-6.5L5 10.5z' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+</head>
+<body data-view="bank-statements">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/></svg>
+        </span>
+        <span class="brand-text"><strong id="appNameLabel">Fleebee Dispatch Desk</strong><span>Workflow &amp; SMS Console</span></span>
+      </div>
+
+      <nav class="side-nav" aria-label="Primary">
+        <a class="side-link" href="/" data-nav-view="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>Overview</a>
+
+        <div class="side-group-label">Workflow</div>
+        <div class="side-subnav">
+          <a class="side-sub-link" href="/settings/index.html" data-nav-view="recipients"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="9" cy="9" r="3"/><path d="M4.5 19c.8-2.6 3-4 5.5-4s4.7 1.4 5.5 4"/></svg>Recipients</a>
+          <a class="side-sub-link" href="/bikes.html" data-nav-view="bikes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M7 17l2-6h6l2 6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>Bike Workflow</a>
+          <a class="side-sub-link" href="/batches.html" data-nav-view="batches"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4.5 7.5 12 3l7.5 4.5L12 12 4.5 7.5Z"/><path d="M4.5 12 12 16.5 19.5 12"/></svg>Batches</a>
+        </div>
+
+        <div class="side-group-label">Messaging</div>
+        <div class="side-subnav">
+          <a class="side-sub-link" href="/sms/index.html" data-nav-view="send-sms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 4L10 14M20 4l-6 16-2.5-7.5L4 10z"/></svg>Templates</a>
+          <a class="side-sub-link" href="/scheduled.html" data-nav-view="scheduled-sms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M8 3v3M16 3v3M4 9h16"/><rect x="4" y="5.5" width="16" height="15" rx="2"/></svg>Scheduled SMS</a>
+          <a class="side-sub-link" href="/messages.html" data-nav-view="message-history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M6 7.5h12M6 12h12M6 16.5h8"/></svg>Message History</a>
+        </div>
+
+        <div class="side-group-label">Operations</div>
+        <div class="side-subnav">
+          <a class="side-sub-link" href="/gateway.html" data-nav-view="gateway"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2"/><circle cx="12" cy="18" r=".8"/></svg>Phone Gateway</a>
+          <a class="side-sub-link" href="/bundles.html" data-nav-view="bundles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4.5 7.5 12 3l7.5 4.5L12 12 4.5 7.5Z"/><path d="M4.5 7.5v9L12 21l7.5-4.5v-9"/></svg>Bundle Check</a>
+          <a class="side-sub-link" href="/contraventions.html" data-nav-view="contraventions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M7 3.5h10l2 3v14H5v-14l2-3Z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Check fines</a>
+        </div>
+
+        <div class="side-group-label">Data</div>
+        <div class="side-subnav">
+          <a class="side-sub-link" href="/data-dashboard.html" data-nav-view="data-dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Dashboard</a>
+          <a class="side-sub-link" href="/data-payments.html" data-nav-view="data-payments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg>Payments</a>
+          <a class="side-sub-link" href="/bank-statements.html" data-nav-view="bank-statements"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M6 2.5h9l3 3v16H6z"/><path d="M14.5 2.5V6H18M9 11h6M9 15h6M9 19h4"/></svg>Bank Statements</a>
+        </div>
+
+        <div class="side-group-label">Access</div>
+        <div class="side-subnav"><a class="side-sub-link" href="/admin.html" data-nav-view="admin-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Admin Settings</a></div>
+      </nav>
+
+      <div class="sidebar-foot"><div class="side-fact"><span>Files accepted</span><strong>BK PDF only</strong></div><div class="side-fact"><span>API endpoint</span><strong id="apiBaseLabel">Loading...</strong></div></div>
+    </aside>
+
+    <div class="main">
+      <header class="main-header">
+        <div><h1>Bank Statements</h1><p class="header-sub">Upload a Bank of Kigali account statement and review incoming deposits.</p></div>
+        <div class="header-actions"><span id="statementBadge" class="badge status-chip pending">No statement loaded</span><button id="logoutButton" class="ghost-button" type="button">Logout</button></div>
+      </header>
+
+      <div class="content">
+        <p id="pageNotice" class="notice page-notice" role="status" aria-live="polite"></p>
+
+        <section class="panel statement-upload-panel">
+          <div class="panel-head"><div><h2>Upload BK statement</h2><p class="mini-note">PDF only, maximum 10 MB. Encrypted, corrupted, and non-BK documents are rejected.</p></div></div>
+          <form id="statementUploadForm" class="statement-upload-form">
+            <label id="statementDropZone" class="statement-drop-zone" for="statementFile">
+              <span class="statement-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 16V4M7.5 8.5 12 4l4.5 4.5"/><path d="M5 14v5.5h14V14"/></svg></span>
+              <strong id="statementFileLabel">Choose a Bank of Kigali PDF</strong>
+              <span>Click to browse or drop the statement here</span>
+              <input id="statementFile" name="file" type="file" accept="application/pdf,.pdf" required>
+            </label>
+            <div class="statement-upload-actions"><span id="statementFileMeta">No file selected</span><button id="processStatementButton" class="primary-button" type="submit" disabled><span id="uploadLoader" class="button-loader hidden" aria-hidden="true"></span><span id="processButtonLabel">Process statement</span></button></div>
+          </form>
+        </section>
+
+        <section id="statementSummary" class="metric-grid data-metric-grid hidden" aria-label="Statement results">
+          <article class="metric-card"><span>Incoming transactions</span><strong id="incomingCount">0</strong></article>
+          <article class="metric-card"><span>Total received</span><strong id="incomingTotal">RWF 0</strong></article>
+          <article class="metric-card"><span>Statement period</span><strong id="statementPeriod" class="metric-text">—</strong></article>
+          <article class="metric-card"><span>Needs review</span><strong id="reviewCount">0</strong></article>
+        </section>
+
+        <section id="statementResults" class="panel hidden">
+          <div class="panel-head"><div><h2>Incoming deposits</h2><p id="statementDescription" class="mini-note">The extracted date, depositor name, and amount appear below.</p></div></div>
+          <div class="table-wrap">
+            <table class="data-table bank-statement-table">
+              <thead><tr><th>Date</th><th>Depositor name</th><th>Registered biker</th><th>Amount</th><th>Status</th><th>Google Sheet</th></tr></thead>
+              <tbody id="statementTransactionsBody"></tbody>
+              <tfoot><tr><td colspan="3">TOTAL RECEIVED</td><td id="statementTableTotal">RWF 0</td><td colspan="2"></td></tr></tfoot>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+  <script src="/app-config.js"></script>
+  <script src="/assets/js/bank-statements.js?v=5"></script>
+</body>
+</html>

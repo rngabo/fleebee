@@ -77,6 +77,49 @@ const env = {
   SCHEDULE_POLL_MS: numberFromEnv("SCHEDULE_POLL_MS", 30 * 1000),
   PHONE_HEARTBEAT_STALE_MS: numberFromEnv("PHONE_HEARTBEAT_STALE_MS", 20 * 1000),
   DUPLICATE_WINDOW_MS: numberFromEnv("DUPLICATE_WINDOW_MS", 10 * 60 * 1000),
+  FINE_MONITOR_SERVICE_TOKEN: stringFromEnv("FINE_MONITOR_SERVICE_TOKEN", ""),
+  FINE_MONITOR_NODE_BINARY: stringFromEnv("FINE_MONITOR_NODE_BINARY", process.execPath),
+  FINE_MONITOR_SCRIPT_PATH: stringFromEnv(
+    "FINE_MONITOR_SCRIPT_PATH",
+    path.resolve(ROOT_DIR, "../fine-monitor/src/run-once.js")
+  ),
+  FINE_MONITOR_ENV_FILE: stringFromEnv(
+    "FINE_MONITOR_ENV_FILE",
+    path.resolve(ROOT_DIR, "../fine-monitor/.env")
+  ),
+  FINE_MONITOR_SCHEDULER_POLL_MS: numberFromEnv(
+    "FINE_MONITOR_SCHEDULER_POLL_MS",
+    60 * 1000
+  ),
+  DATA_SYNC_SERVICE_TOKEN: stringFromEnv("DATA_SYNC_SERVICE_TOKEN", ""),
+  DATA_SYNC_NODE_BINARY: stringFromEnv("DATA_SYNC_NODE_BINARY", process.execPath),
+  DATA_SYNC_SCRIPT_PATH: stringFromEnv(
+    "DATA_SYNC_SCRIPT_PATH",
+    path.resolve(ROOT_DIR, "../data-sync/src/run-once.js")
+  ),
+  DATA_SYNC_ENV_FILE: stringFromEnv(
+    "DATA_SYNC_ENV_FILE",
+    path.resolve(ROOT_DIR, "../data-sync/.env")
+  ),
+  DATA_SYNC_SCHEDULER_POLL_MS: numberFromEnv(
+    "DATA_SYNC_SCHEDULER_POLL_MS",
+    60 * 1000
+  ),
+  BANK_STATEMENT_SERVICE_URL: stringFromEnv("BANK_STATEMENT_SERVICE_URL", "").replace(/\/$/, ""),
+  BANK_STATEMENT_SERVICE_API_KEY: stringFromEnv("BANK_STATEMENT_SERVICE_API_KEY", ""),
+  BANK_STATEMENT_SERVICE_TIMEOUT_MS: numberFromEnv(
+    "BANK_STATEMENT_SERVICE_TIMEOUT_MS",
+    30 * 1000
+  ),
+  BANK_STATEMENT_MAX_UPLOAD_BYTES: numberFromEnv(
+    "BANK_STATEMENT_MAX_UPLOAD_BYTES",
+    10 * 1024 * 1024
+  ),
+  PAYMENTS_SHEET_ID: stringFromEnv(
+    "PAYMENTS_SHEET_ID",
+    "1yK5CDKJL6xIXmnKTYmM8YP-XfKt2SGbq0an3LlAX1xE"
+  ),
+  PAYMENTS_SHEET_SERVICE_ACCOUNT_FILE: stringFromEnv("PAYMENTS_SHEET_SERVICE_ACCOUNT_FILE", ""),
   SMS_SEND_PASSWORD: stringFromEnv("SMS_SEND_PASSWORD", "1234"),
   SMS_ADMIN_PASSWORD: stringFromEnv(
     "SMS_ADMIN_PASSWORD",

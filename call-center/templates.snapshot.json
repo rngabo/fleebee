@@ -1,0 +1,141 @@
+{
+  "note": "Snapshot of the real production SmsTemplate rows (from the Fleebee dashboard, 2026-07-23). Used by speak_templates.py when the local database has no templates. Re-export when the operator edits templates.",
+  "templates": [
+    {
+      "stage": "AT_NOTARY",
+      "category": "notary",
+      "urgency": "important",
+      "title": "Notary step",
+      "body": "{{firstName}}, nyuma yo gufata moto yawe tuzahurira kwa notaire kugira ngo dusoze amasezerano. Niba umwishingizi wawe agomba kuza gusinya, mutegure neza.",
+      "isActive": true
+    },
+    {
+      "stage": "AUTHORIZATION_COMPLETED",
+      "category": "onboarding",
+      "urgency": "normal",
+      "title": "Authorization Completed",
+      "body": "{{firstName}}, uruhushya (RURA) rwa moto yawe ifite plaque {{plate}} rwabonetse. Waza kunyura kwa Notaire kurufata - Kicukiro.",
+      "isActive": true
+    },
+    {
+      "stage": "AUTHORIZATION_IN_PROGRESS",
+      "category": "authorization",
+      "urgency": "normal",
+      "title": "Authorization in progress",
+      "body": "{{firstName}}, ubusabe bw'uruhushya rwa moto yawe ifite plaque {{plate}} buri gukurikiranwa kuri RURA. Turacyabikurikirana.",
+      "isActive": true
+    },
+    {
+      "stage": "AUTHORIZATION_PENDING",
+      "category": "authorization",
+      "urgency": "important",
+      "title": "Authorization pending",
+      "body": "{{firstName}}, uruhushya rwa moto yawe ifite plaque {{plate}} ruracyategerejwe kuri RURA. Icyakora dosiye yawe iri gukurikiranwa kandi tuzakumenyesha uko bimeze.",
+      "isActive": true
+    },
+    {
+      "stage": "DELIVERED",
+      "category": "batch-notice",
+      "urgency": "important",
+      "title": "Batch notice",
+      "body": "{{firstName}}, iri tangazo rireba batch yawe {{batchName}}. Nyamuneka kurikiza amabwiriza watangiwe kandi ukomeze gukurikirana andi makuru.",
+      "isActive": true
+    },
+    {
+      "stage": "DELIVERED",
+      "category": "cleanliness",
+      "urgency": "normal",
+      "title": "Cleanliness reminder",
+      "body": "{{firstName}}, twibutse ko isuku ya moto yawe {{plate}} n'imyitwarire myiza bifasha akazi kawe no kurinda ibihombo.",
+      "isActive": true
+    },
+    {
+      "stage": "DELIVERED",
+      "category": "emergency",
+      "urgency": "urgent",
+      "title": "Emergency notice",
+      "body": "{{firstName}}, hari ikibazo cyihutirwa kireba moto yawe {{plate}}. Nyamuneka twandikire cyangwa uduhamagare vuba bishoboka.",
+      "isActive": true
+    },
+    {
+      "stage": "DELIVERED",
+      "category": "safety",
+      "urgency": "normal",
+      "title": "Safety reminder",
+      "body": "{{firstName}}, turakwibutsa gutwara neza, kubahiriza amategeko y'umuhanda no kwita kuri moto yawe {{plate}} buri munsi.",
+      "isActive": true
+    },
+    {
+      "stage": "DELIVERED",
+      "category": "service-information",
+      "urgency": "normal",
+      "title": "Service information",
+      "body": "{{firstName}}, igihe cya service cyangwa igenzura rya moto yawe {{plate}} nikigera uzabimenyeshwa. Komeza gukurikirana amakuru tuzakohereza.",
+      "isActive": true
+    },
+    {
+      "stage": "DELIVERED",
+      "category": "welcome",
+      "urgency": "normal",
+      "title": "Delivery welcome",
+      "body": "{{firstName}}, turagushimiye. Wamaze guhabwa moto yawe {{plate}}. Komeza kuyitwaraho neza kandi tuzakomeza kukugezaho amakuru y'impapuro n'ubwishyu bukurikira.",
+      "isActive": true
+    },
+    {
+      "stage": "FINE_RECORDED",
+      "category": "fine-notice",
+      "urgency": "urgent",
+      "title": "Traffic fine",
+      "body": "{{firstName}}, moto yawe {{plate}} yaciwe amande ya {{fineAmount}} kubera {{fineReason}}. Turagusaba kuyishyura ku gihe no kwirinda ko byongera kuba.",
+      "isActive": true
+    },
+    {
+      "stage": "INSURANCE_IN_PROGRESS",
+      "category": "insurance",
+      "urgency": "normal",
+      "title": "Insurance in progress",
+      "body": "{{firstName}}, ubwishingizi bwa moto yawe ifite plaque {{plate}} buri gukorwa. Tuzakubwira umunsi wo kujya gufata moto vuba nitubona amakuru mashya.",
+      "isActive": true
+    },
+    {
+      "stage": "LEAD_CAPTURED",
+      "category": "onboarding",
+      "urgency": "normal",
+      "title": "Lead captured",
+      "body": "{{firstName}}, twakiriye amakuru yawe kandi turi gutegura gahunda nshya ya moto. Tuzakomeza kukugezaho aho bigeze vuba.",
+      "isActive": true
+    },
+    {
+      "stage": "PAYMENT_REMINDER",
+      "category": "payment-reminder",
+      "urgency": "important",
+      "title": "Payment reminder",
+      "body": "{{firstName}}, iyi ni reminder y'ubwishyu bukurikira bwa moto yawe {{plate}}. Itariki y'ubwishyu ni {{nextPaymentDate}}. Turakwinginze kubutegura ku gihe.",
+      "isActive": true
+    },
+    {
+      "stage": "PICKUP_SCHEDULED",
+      "category": "pickup",
+      "urgency": "important",
+      "title": "Pickup scheduled",
+      "body": "{{firstName}}, witegure kuza gufata moto yawe ifite plaque {{plate}} ku itariki n'isaha twaguhaye. Ntuzibagirwe uruhushya rwo gutwara moto.",
+      "isActive": true
+    },
+    {
+      "stage": "PLATE_ASSIGNED",
+      "category": "progress-update",
+      "urgency": "important",
+      "title": "Plate assigned",
+      "body": "{{firstName}}, moto yawe ifite plaque {{plate}} ubu yamaze kuboneka. Igikurikiraho ni ugukomeza gahunda y'ubwishingizi.",
+      "isActive": true
+    },
+    {
+      "stage": "PREPARATION",
+      "category": "preparation",
+      "urgency": "normal",
+      "title": "Preparation notice",
+      "body": "{{firstName}}, tangira gutegura ibyangombwa byawe no gushaka umwishingizi uzakorana nawe. Turateganya ko uzabona amakuru mashya vuba.",
+      "isActive": true
+    }
+  ]
+}

@@ -24,6 +24,7 @@ model Biker {
   updatedAt            DateTime           @updatedAt
   batch                Batch?             @relation(fields: [batchId], references: [id], onDelete: SetNull)
   bikes                Bike[]
+  dataMembers          DataMember[]
   fines                Fine[]
   messages             Message[]
   schedules            ScheduledMessage[]
@@ -41,6 +42,9 @@ model Message {
   templateId             String?
   source                 MessageSource     @default(manual)
   scheduledMessageId     String?
+  sendGroupId            String?
+  sendGroupKind          String?
+  sendGroupLabel         String?
   category               MessageCategory
   body                   String
   deliveryBody           String            @default("")
@@ -69,6 +73,7 @@ model Message {
   @@index([status, availableAt, createdAt])
   @@index([targetNumberNormalized, normalizedBody, createdAt])
   @@index([scheduledMessageId, createdAt])
+  @@index([sendGroupId, createdAt])
   @@index([bikeId, createdAt])
   @@index([templateId, createdAt])
 }
@@ -81,34 +86,34 @@ model AppSetting {
 }
 
 model PhoneState {
-  id                String   @id
+  id                String    @id
   mode              String
   targetNumber      String
   fixedLocation     String
   batteryPolicy     String
   network           String
   deviceId          String
-  bundleUssdCode    String   @default("*131#")
-  bundleStatus      String   @default("unknown")
+  bundleUssdCode    String    @default("*131#")
+  bundleStatus      String    @default("unknown")
   bundleSummary     String?
   bundleDetails     String?
   bundleLastError   String?
-  bundleCheckedAt DateTime?
+  bundleCheckedAt   DateTime?
   bundleRequestedAt DateTime?
-  lastHeartbeatAt DateTime
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  lastHeartbeatAt   DateTime
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
 model ScheduledMessage {
-  id                  String                  @id
+  id                  String                 @id
   bikerId             String
   bikerName           String
   category            MessageCategory
   body                String
   normalizedBody      String
   recurrence          ScheduleRecurrence
-  status             ScheduledMessageStatus @default(active)
+  status              ScheduledMessageStatus @default(active)
   sendAt              DateTime
   nextRunAt           DateTime?
   timeOfDay           String
@@ -119,9 +124,9 @@ model ScheduledMessage {
   lastDispatchStatus  String?
   lastDispatchNote    String?
   completedAt         DateTime?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
-  biker               Biker                   @relation(fields: [bikerId], references: [id], onDelete: Restrict)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  biker               Biker                  @relation(fields: [bikerId], references: [id], onDelete: Restrict)
   messages            Message[]
 
   @@index([status, nextRunAt])
@@ -129,14 +134,14 @@ model ScheduledMessage {
 }
 
 model Batch {
-  id                   String   @id
-  name                 String   @unique
-  code                 String   @default("")
-  notes                String   @default("")
+  id                   String    @id
+  name                 String    @unique
+  code                 String    @default("")
+  notes                String    @default("")
   expectedDeliveryDate DateTime?
   leaseEndDate         DateTime?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
   bikers               Biker[]
   bikes                Bike[]
 
@@ -144,29 +149,30 @@ model Batch {
 }
 
 model Bike {
-  id                  String               @id
-  bikerId             String
-  batchId             String?
-  plateNumber         String?
-  chassisNumber       String?
-  bikeModel           String?
-  lifecycleStage      String               @default("LEAD_CAPTURED")
-  insuranceStatus     String               @default("")
-  authorizationStatus String               @default("")
-  pickupStatus        String               @default("")
-  officialStartDate   DateTime?
-  nextPaymentDate     DateTime?
-  notificationsEnabled Boolean             @default(true)
-  knownModelIssues    String               @default("")
-  maintenanceNotes    String               @default("")
-  notes               String               @default("")
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  batch               Batch?               @relation(fields: [batchId], references: [id], onDelete: SetNull)
-  biker               Biker                @relation(fields: [bikerId], references: [id], onDelete: Restrict)
-  fines               Fine[]
-  messages            Message[]
-  progressUpdates     BikeProgressUpdate[]
+  id                   String               @id
+  bikerId              String
+  batchId              String?
+  plateNumber          String?
+  chassisNumber        String?
+  bikeModel            String?
+  lifecycleStage       String               @default("LEAD_CAPTURED")
+  insuranceStatus      String               @default("")
+  authorizationStatus  String               @default("")
+  pickupStatus         String               @default("")
+  officialStartDate    DateTime?
+  nextPaymentDate      DateTime?
+  notificationsEnabled Boolean              @default(true)
+  knownModelIssues     String               @default("")
+  maintenanceNotes     String               @default("")
+  notes                String               @default("")
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  batch                Batch?               @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  biker                Biker                @relation(fields: [bikerId], references: [id], onDelete: Restrict)
+  dataMembers          DataMember[]
+  fines                Fine[]
+  messages             Message[]
+  progressUpdates      BikeProgressUpdate[]
 
   @@index([createdAt])
   @@index([bikerId, createdAt])
@@ -195,25 +201,212 @@ model BikeProgressUpdate {
 }
 
 model Fine {
-  id                  String       @id
-  bikeId              String
-  bikerId             String
-  amount              String
-  reason              String
-  fineDate            DateTime
-  paymentDeadline     DateTime?
-  sourceSummary       String       @default("")
-  notifyRecipient     Boolean      @default(true)
-  templateId          String?
-  sentMessageId       String?
-  renderedMessageBody String       @default("")
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-  bike                Bike         @relation(fields: [bikeId], references: [id], onDelete: Cascade)
-  biker               Biker        @relation(fields: [bikerId], references: [id], onDelete: Restrict)
-  template            SmsTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  id                   String       @id
+  bikeId               String
+  bikerId              String
+  amount               String
+  amountRwf            Int?
+  currency             String       @default("RWF")
+  reason               String
+  fineDate             DateTime
+  paymentDeadline      DateTime?
+  source               String       @default("manual")
+  externalTicketNumber String?
+  sourceSummary        String       @default("")
+  firstSeenAt          DateTime     @default(now())
+  lastSeenAt           DateTime     @default(now())
+  lastCheckedAt        DateTime     @default(now())
+  isCurrentlyReported  Boolean      @default(true)
+  resolvedAt           DateTime?
+  notifyRecipient      Boolean      @default(true)
+  templateId           String?
+  sentMessageId        String?
+  renderedMessageBody  String       @default("")
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  bike                 Bike         @relation(fields: [bikeId], references: [id], onDelete: Cascade)
+  biker                Biker        @relation(fields: [bikerId], references: [id], onDelete: Restrict)
+  template             SmsTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
+  @@unique([source, externalTicketNumber])
   @@index([bikeId, createdAt])
+  @@index([bikerId, createdAt])
+  @@index([source, isCurrentlyReported, lastSeenAt])
+}
+
+model FineCheckRun {
+  id           String                  @id
+  trigger      String                  @default("manual-canary")
+  status       String                  @default("RUNNING")
+  targetCount  Int                     @default(0)
+  foundCount   Int                     @default(0)
+  clearCount   Int                     @default(0)
+  failedCount  Int                     @default(0)
+  skippedCount Int                     @default(0)
+  startedAt    DateTime                @default(now())
+  completedAt  DateTime?
+  errorMessage String                  @default("")
+  targets      FineCheckTargetResult[]
+
+  @@index([startedAt])
+  @@index([status, startedAt])
+}
+
+model FineCheckTargetResult {
+  id           String       @id
+  runId        String
+  bikeId       String
+  bikerId      String
+  bikerName    String
+  plateNumber  String
+  state        String       @default("PENDING")
+  fineCount    Int          @default(0)
+  errorCode    String       @default("")
+  errorMessage String       @default("")
+  retryCount   Int          @default(0)
+  checkedAt    DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  run          FineCheckRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, bikeId])
+  @@index([bikeId, checkedAt])
+  @@index([state, checkedAt])
+}
+
+model DataSyncRun {
+  id                String                 @id
+  trigger           String                 @default("manual")
+  status            String                 @default("RUNNING")
+  spreadsheetId     String
+  memberCount       Int                    @default(0)
+  paymentCount      Int                    @default(0)
+  dashboardRowCount Int                    @default(0)
+  linkedMemberCount Int                    @default(0)
+  createdBikerCount Int                    @default(0)
+  createdBikeCount  Int                    @default(0)
+  conflictCount     Int                    @default(0)
+  startedAt         DateTime               @default(now())
+  completedAt       DateTime?
+  errorMessage      String                 @default("")
+  dashboardSnapshot DataDashboardSnapshot?
+
+  @@index([startedAt])
+  @@index([status, startedAt])
+}
+
+model DataMember {
+  id                String             @id
+  sourcePersonId    String             @unique
+  bikerId           String?
+  bikeId            String?
+  sourceStatus      String             @default("")
+  sourceName        String
+  normalizedName    String
+  startDate         DateTime?
+  batchCode         String             @default("")
+  monthlyDueRwf     Int?
+  weeklyDueRwf      Int?
+  durationMonths    Int?
+  dueDayOne         String             @default("")
+  dueDayTwo         String             @default("")
+  firstMonthDueRwf  Int?
+  lastMonthDueRwf   Int?
+  notes             String             @default("")
+  sourcePhone       String             @default("")
+  sourcePlate       String             @default("")
+  chargingCode      String             @default("")
+  extraChargesRwf   Int                @default(0)
+  activeNumber      Int?
+  comment           String             @default("")
+  sourceRowNumber   Int
+  sourceFingerprint String
+  matchStatus       String             @default("UNMATCHED")
+  matchNote         String             @default("")
+  isPresent         Boolean            @default(true)
+  lastSeenRunId     String             @default("")
+  lastSeenAt        DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  biker             Biker?             @relation(fields: [bikerId], references: [id], onDelete: SetNull)
+  bike              Bike?              @relation(fields: [bikeId], references: [id], onDelete: SetNull)
+  payments          DataPayment[]
+  dashboardRows     DataDashboardRow[]
+
+  @@index([bikerId, isPresent])
+  @@index([bikeId, isPresent])
+  @@index([sourcePlate, isPresent])
+  @@index([normalizedName, isPresent])
+}
+
+model DataPayment {
+  id                String     @id
+  sourceKey         String     @unique
+  dataMemberId      String
+  bikerId           String?
+  paymentDate       DateTime
+  amountRwf         Int
+  paymentMethod     String     @default("")
+  referenceNote     String     @default("")
+  enteredBy         String     @default("")
+  sourceRowNumber   Int
+  sourceFingerprint String
+  isPresent         Boolean    @default(true)
+  lastSeenRunId     String     @default("")
+  lastSeenAt        DateTime   @default(now())
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  dataMember        DataMember @relation(fields: [dataMemberId], references: [id], onDelete: Cascade)
+
+  @@index([dataMemberId, paymentDate])
+  @@index([bikerId, paymentDate])
+  @@index([paymentDate, isPresent])
+}
+
+model DataDashboardSnapshot {
+  id                     String             @id
+  runId                  String             @unique
+  selectedDate           DateTime?
+  monthStart             DateTime?
+  monthEnd               DateTime?
+  totalMonthlyDueRwf     Int                @default(0)
+  totalPaidInMonthRwf    Int                @default(0)
+  totalBalanceRwf        Int                @default(0)
+  totalPaidByDateRwf     Int                @default(0)
+  totalDueByDateRwf      Int                @default(0)
+  totalOverallBalanceRwf Int                @default(0)
+  createdAt              DateTime           @default(now())
+  run                    DataSyncRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  rows                   DataDashboardRow[]
+
+  @@index([createdAt])
+}
+
+model DataDashboardRow {
+  id                  String                @id
+  snapshotId          String
+  dataMemberId        String?
+  bikerId             String?
+  sourceName          String
+  batchCode           String                @default("")
+  monthlyDueRwf       Int                   @default(0)
+  paidInMonthRwf      Int                   @default(0)
+  balanceRemainingRwf Int                   @default(0)
+  lastPaymentDate     DateTime?
+  paidByDateRwf       Int                   @default(0)
+  dueByDateRwf        Int                   @default(0)
+  overallBalanceRwf   Int                   @default(0)
+  trackStatus         String                @default("")
+  note                String                @default("")
+  adjustmentAmountRwf Int?
+  adjustmentNote      String                @default("")
+  sourceRowNumber     Int
+  createdAt           DateTime              @default(now())
+  snapshot            DataDashboardSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  dataMember          DataMember?           @relation(fields: [dataMemberId], references: [id], onDelete: SetNull)
+
+  @@index([snapshotId, sourceRowNumber])
+  @@index([dataMemberId, createdAt])
   @@index([bikerId, createdAt])
 }
 
@@ -262,6 +455,10 @@ enum ScheduleRecurrence {
   DAILY
   WEEKLY
   MONTHLY
+  EVERY_2_MONTHS
+  EVERY_3_MONTHS
+  EVERY_4_MONTHS
+  EVERY_5_MONTHS
 }
 
 enum ScheduledMessageStatus {

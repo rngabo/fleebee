@@ -1,0 +1,32 @@
+services:
+  api:
+    build: .
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8100:8100"
+    volumes:
+      - statement_files:/app/storage
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: bank_statement
+      POSTGRES_USER: bank_statement
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bank_statement -d bank_statement"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - statement_database:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  statement_files:
+  statement_database:
+

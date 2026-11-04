@@ -1213,3 +1213,1186 @@ The big recent wins were bundle automation, persistent ADB recovery on `.50`, ni
 ### Next steps
 
 - Hard refresh the browser if that old top note is still cached in the current tab.
+
+## 2026-07-21
+
+### What changed
+
+- Added shared SMS phone-number validation helpers in:
+  - [workflow-support.js](/home/richard/APPS/SALVI/2026/fleebee-management/fllee-backend/src/services/workflow-support.js)
+- Tightened backend biker and message validation so Fleebee now rejects SMS targets that do not contain a plausible SMS number length (`10-15` digits) in:
+  - [biker-service.js](/home/richard/APPS/SALVI/2026/fleebee-management/fllee-backend/src/services/biker-service.js)
+  - [message-service.js](/home/richard/APPS/SALVI/2026/fleebee-management/fllee-backend/src/services/message-service.js)
+- Extended serialized biker records with `hasValidPhoneNumber` so the frontend can warn before queueing batch sends.
+- Updated the shared compose modal flow in:
+  - [app.js](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/js/app.js)
+  - [styles.css](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/css/styles.css)
+  so:
+  - batch and multi-recipient sends include only active bikers with valid phone numbers
+  - invalid active recipients are shown in a skipped warning section instead of silently failing later on the phone
+  - zero-valid-recipient batch sends now explain which phone numbers must be fixed first
+  - queue/schedule result messages now mention skipped invalid recipients
+- Ran syntax checks successfully with:
+  - `node --check` on the modified backend and frontend JavaScript files
+
+### Decisions made and why
+
+- Treated invalid recipient data as a separate failure class from the earlier multipart Android issue, because the repo handoff already showed at least one live biker record with a too-short number.
+- Added the main guardrails in both backend and frontend so:
+  - older cached browsers still cannot queue obviously bad targets
+  - operators get immediate UI feedback before wasting a batch send attempt
+- Kept validation broad (`10-15` digits after normalization) so existing local-format and international-format SMS numbers can still work.
+
+### Current state
+
+- New or edited biker records must now contain a plausible SMS phone number.
+- Manual and batch compose flows now label invalid active recipients clearly and skip them from dispatch.
+- Backend message creation now rejects invalid target numbers even if an outdated frontend tries to submit them.
+
+### Next steps
+
+- Correct any already-saved invalid biker numbers in live data, especially the previously noted short entry if it still exists.
+- Deploy/sync the updated frontend and backend, then retest a real-mode batch send.
+
+## 2026-07-21
+
+### What changed
+
+- Added persistent batch-send grouping fields to the message model in:
+  - [schema.prisma](/home/richard/APPS/SALVI/2026/fleebee-management/fllee-backend/prisma/schema.prisma)
+  - [message-service.js](/home/richard/APPS/SALVI/2026/fleebee-management/fllee-backend/src/services/message-service.js)
+- Updated the shared compose flow in [app.js](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/js/app.js) so `Send using batch` now stamps all queued messages from one batch action with the same:
+  - `sendGroupId`
+  - `sendGroupKind=batch`
+  - `sendGroupLabel=<batch name>`
+- Reworked the overview recent table and the message-history/SMS table so batch sends now render as one summary row labeled with the batch name instead of one row per recipient.
+- Added grouped-row behavior so the batch row now shows:
+  - recipient count
+  - summarized status counts
+  - failed recipient names only when failures exist
+- Added `Delete Batch` for grouped pending rows so the operator can still remove the whole pending batch before release.
+- Synced the local SQLite schema and regenerated Prisma client successfully with:
+  - `npm run prisma:migrate`
+
+### Decisions made and why
+
+- Used a real persisted batch-send group marker instead of trying to guess groups from timestamps, because visual-only grouping could merge unrelated sends or split the same batch after refresh.
+- Kept grouped rows collapsed even when statuses differ, but added failed-recipient listing inside the summary row, because the user wanted less noise by default and extra detail only when something goes wrong.
+- Allowed grouped pending rows to be deleted as a whole, but did not add grouped editing, because per-recipient template rendering makes safe batch editing less obvious than batch deletion.
+
+### Current state
+
+- New `Send using batch` actions now appear as one row with `Batch: <name>` in the overview and message log.
+- That row stays compact through pending, queue, dispatch, submit, and sent states.
+- If failures happen inside the batch, the row now calls out the failed recipient names in the status detail instead of exploding the whole batch into many rows.
+
+### Next steps
+
+- Hard refresh the browser so the new grouped-row behavior replaces any cached old message table JavaScript.
+- Retest a real batch send and confirm the message log now stays on one row per batch unless failure details need attention.
+
+## 2026-07-21
+
+### What changed
+
+- Added a quick-day schedule picker to the shared compose modal on:
+  - [index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/index.html)
+  - [messages.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/messages.html)
+  - [scheduled.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/scheduled.html)
+  - [sms/index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/sms/index.html)
+- Updated the shared compose logic in [app.js](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/js/app.js) so schedule quick picks now show the next nearby dates starting after Tuesday, July 21, 2026:
+  - `Tomorrow — Wednesday, Jul 22`
+  - `Thursday, Jul 23`
+  - `Friday, Jul 24`
+  - `Saturday, Jul 25`
+- Made the quick-day picker preserve the chosen send time while changing only the day.
+- Made manual edits to the `Send at` datetime field resync the quick-day dropdown automatically.
+- Verified the updated shared frontend JavaScript with:
+  - `node --check flee-frontend/public/assets/js/app.js`
+
+### Decisions made and why
+
+- Kept the original `Send at` datetime input instead of replacing it, so the operator can still choose the exact hour and minute after picking a nearby day quickly.
+- Used explicit weekday-plus-date labels to reduce confusion around relative words like `tomorrow`.
+- Added four forward options instead of only three so the operator has a little more room without needing to open the calendar immediately.
+
+### Current state
+
+- When scheduling a send, the modal now offers quick future day picks above the datetime field.
+- Picking one of those options changes the scheduled day and keeps the selected time.
+- If the operator chooses a custom far-future date manually, the quick picker falls back to its placeholder instead of forcing the date back.
+
+### Next steps
+
+- Hard refresh the browser so the updated compose modal JavaScript and markup replace any cached version.
+- Open `New SMS` or `New Schedule`, switch to `Schedule`, and confirm the quick picker is easier to use on the live dashboard.
+
+## 2026-07-21
+
+### What changed
+
+- Deployed the latest local Fleebee changes to the home computer at `richard@192.168.1.50` with:
+  - [deploy/home-computer/sync-release.sh](/home/richard/APPS/SALVI/2026/fleebee-management/deploy/home-computer/sync-release.sh)
+  - [deploy/home-computer/restart-service.sh](/home/richard/APPS/SALVI/2026/fleebee-management/deploy/home-computer/restart-service.sh)
+- Synced the current frontend/backend changes that include:
+  - SMS phone-number validation safeguards
+  - grouped batch-send rows in overview/message history
+  - quick-day schedule picker in the compose modal
+- Ran the remote Prisma schema/client refresh on the home computer successfully against the live shared database:
+  - `npm run prisma:migrate`
+- Restarted `fleebee.service` successfully on the home computer.
+- Verified live backend health on the home computer with:
+  - `curl http://127.0.0.1:4100/health`
+  - response returned `status: ok`
+- Added the next implementation plan below for a persistent overview schedule card with a countdown.
+
+### Decisions made and why
+
+- Used the Fleebee runtime Node path on the home computer for the remote Prisma refresh because the default shell `node` there is still old (`/usr/bin/node` `v12.22.9`) and does not match the runtime used by the live service.
+- Kept the deployment path aligned with the existing home-computer scripts so the live layout under `~/fleebee/current` and the user-level systemd service stay consistent.
+- For the next overview-schedule feature, chose the existing schedule model as the base because `sendAt`, `nextRunAt`, `recurrence`, `status`, and `lastDispatchStatus` already exist and are enough for a first persistent countdown card without a schema change.
+
+### Current state
+
+- The live home computer now has the current code for:
+  - batch-send grouping rows
+  - schedule quick-day selection
+  - stronger SMS phone validation
+- `fleebee.service` restarted cleanly and is running again on the home computer.
+- The overview page still does **not** yet have a dedicated persistent `next schedule` card with a live countdown; that is the next UI feature to add.
+
+### Plan: Persistent Overview Schedule Countdown
+
+1. Add a dedicated overview panel in [index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/index.html).
+   - Title idea: `Next Schedule` or `Upcoming Schedule`.
+   - Place it in the overview stack near the other operational cards so it stays visible without opening `Scheduled SMS`.
+
+2. Reuse the existing schedule data already loaded into `state.schedules` in [app.js](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/js/app.js).
+   - Prefer `active` schedules with the earliest `nextRunAt`.
+   - Fall back to a future `sendAt` when needed.
+   - Keep `paused` and `completed` out of the primary countdown selection unless there is no active future item.
+
+3. Add a shared helper that builds a clear time label and countdown.
+   - Absolute time example:
+     `Wednesday, July 22, 2026 at 09:00`
+   - Relative countdown example:
+     `in 13h 24m`
+   - When the target time is very close or overdue, switch wording cleanly instead of showing confusing negative values.
+
+4. Render a persistent overview card from that selected schedule.
+   - Show:
+     - biker name
+     - category
+     - recurrence
+     - next run date/time
+     - countdown
+     - last dispatch status if available
+   - Keep the message body preview short so the card stays readable.
+
+5. Make the countdown update live on the page without needing a full data refetch every second.
+   - Reuse the existing lightweight interval pattern already used for pending-message countdown refreshes.
+   - Refresh the overview schedule card timer label on that interval.
+
+6. Add a graceful empty state.
+   - If there is no active upcoming schedule, show:
+     `No upcoming schedule yet.`
+   - Optionally include a short prompt to create one from `New SMS` -> `Schedule`.
+
+7. Verify on live data after implementation.
+   - Test one one-time future schedule.
+   - Test one recurring schedule.
+   - Confirm the countdown survives refresh, updates on its own, and still looks correct after deployment on the home computer.
+
+### Next steps
+
+- Hard refresh the browser so the newly deployed batch-row and schedule-picker UI replaces any cached old frontend files.
+- Implement the overview `Next Schedule` countdown card using the plan above.
+
+## 2026-07-22
+
+### What changed
+
+- Added retry support for failed SMS directly from the overview `Recent SMS` table.
+- Batch rows can now open a failed-recipient detail list, and each failed recipient gets its own `Retry` button.
+- Single failed rows in `Recent SMS` also now show `Retry` beside the eye button.
+- Retried batch recipients reuse the same batch group metadata so the grouped row keeps reflecting the latest attempt per recipient.
+
+### Decisions made and why
+
+- Reused the existing `/api/messages` create flow plus the existing SMS password modal instead of adding a special backend retry endpoint, because failed messages are already allowed to be queued again and this keeps the phone/gateway path unchanged.
+- Kept the old failed records in storage for traceability, but changed the batch-row summary logic to use the latest attempt per recipient so a successful retry no longer leaves the whole batch visually stuck in `FAILED`.
+
+### Current state
+
+- Operators can retry only the failed recipient from a batch without resending the whole batch.
+- Recent batch rows still stay grouped, but failed recipients can be reviewed inline and retried one by one.
+- No schema change was required for this retry feature.
+
+### Next steps
+
+- Verify in the browser with a real failed batch example that:
+  - the failed-recipient detail row opens correctly
+  - password prompt appears on retry
+  - the new retry enters the pending queue
+  - the batch summary updates to the latest attempt per recipient after refresh
+
+## 2026-07-23
+
+### What changed
+
+- Added a new overview table for recurring schedules in:
+  - [index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/index.html)
+  - [app.js](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/js/app.js)
+- The overview now shows daily, weekly, and monthly schedules immediately without opening the `Scheduled SMS` page.
+- Reused the existing schedule actions there, so recurring schedules can still be edited, paused/resumed, or deleted directly from the overview.
+- Removed the blue `New Schedule` button from [scheduled.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/scheduled.html).
+
+### Decisions made and why
+
+- Filtered the new overview table to recurring schedules only by excluding `ONCE`, because the request was specifically about quickly seeing repeating messages such as monthly schedules.
+- Kept schedule creation behind the existing red `New SMS` flow on the overview page, then the operator can choose `Schedule` and the repeat pattern there, which avoids having two competing create buttons.
+
+### Current state
+
+- The overview page now has a dedicated recurring-schedules table near the top.
+- The scheduled page still lists all schedules, but it no longer shows the blue `New Schedule` button.
+- One-time schedules remain on the `Scheduled SMS` page and are not mixed into the new overview recurring table.
+
+### Next steps
+
+- Hard refresh the browser so the updated overview and scheduled-page frontend files replace any cached version.
+- Verify one monthly recurring schedule and one weekly or daily recurring schedule appear correctly in the new overview table.
+
+## 2026-07-23
+
+### What changed
+
+- Changed the schedule repeat model so the UI now offers:
+  - `Occasionally`
+  - `Monthly`
+  - `After 2 months`
+  - `After 3 months`
+  - `After 4 months`
+  - `After 5 months`
+- Added backend support for the new month-based recurrence values in:
+  - [schema.prisma](/home/richard/APPS/SALVI/2026/fleebee-management/fllee-backend/prisma/schema.prisma)
+  - [scheduled-message-service.js](/home/richard/APPS/SALVI/2026/fleebee-management/fllee-backend/src/services/scheduled-message-service.js)
+- Restored the blue `New Schedule` button on [scheduled.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/scheduled.html), and it now opens the compose modal directly in schedule mode.
+- Kept batch and individual scheduling available in that schedule flow by reusing the existing shared compose target tabs.
+- Changed schedule listing behavior so completed one-time schedules no longer stay visible in schedule tables; after they run, they remain only in message history.
+
+### Decisions made and why
+
+- Kept legacy backend support for `DAILY` and `WEEKLY` schedule values so any older saved data can still be read safely, but removed those options from the new schedule UI because the requested creation flow is now month-focused.
+- Filtered schedule listings to active and paused rows only, instead of deleting completed schedule records, so operators keep a clean pending list without losing backend traceability.
+
+### Current state
+
+- New schedules can now be created as occasional, monthly, or every 2 to 5 months.
+- The `Scheduled SMS` page now acts like a pending schedule queue rather than a long archive.
+- One-time schedules disappear from schedule tables after they run and remain visible through normal message history only.
+
+### Next steps
+
+- Hard refresh the browser so the new repeat options and restored `New Schedule` button replace any cached frontend files.
+- Verify:
+  - one individual monthly schedule
+  - one batch schedule
+  - one occasional schedule disappearing from the schedule table after it runs
+
+## 2026-07-23
+
+### What changed
+
+- Created a new `call-center/` folder: a future microservice for calling bikers with Kinyarwanda voice (TTS), the voice counterpart to the existing SMS gateway.
+- Added `call-center/README.md` (purpose, intended shape, first milestone, non-goals) and `call-center/TTS_MODEL_OPTIONS.md` (three Kinyarwanda TTS options with a test plan).
+
+### Decisions made and why
+
+- Test `facebook/mms-tts-kin` first (VITS via Hugging Face Transformers): ~150 MB, CPU-friendly, works with the system Python 3.13, five-minute setup.
+- KinyaTTS (MB-iSTFT-VITS2) is the quality fallback; DigitalUmuganda YourTTS only if voice cloning is needed (requires abandoned Coqui TTS and a separate Python 3.10/3.11 env).
+- Call delivery channel (Android dial-out vs SIP/VoIP) deliberately deferred until TTS quality is proven.
+
+### Current state
+
+- `call-center/` contains docs only — no code, no venv yet.
+- Dev machine has Python 3.13.7, which rules out Coqui TTS without pyenv but is fine for MMS-TTS.
+
+### Next steps
+
+- Create a venv in `call-center/`, install `transformers torch scipy`, run the MMS-TTS script to produce `out.wav`.
+- Have a Kinyarwanda speaker judge intelligibility and tonal accuracy on a realistic biker dispatch phrase.
+- Record verdicts in `call-center/TTS_MODEL_OPTIONS.md`; escalate to KinyaTTS only if quality fails.
+
+### Scope clarified later the same day
+
+- The call-center service is a **two-way Kinyarwanda voice agent**, not just outbound TTS announcements: call a biker when needed, speak in Kinyarwanda, listen to the reply (STT), and store the important information for operators.
+- Rewrote `call-center/README.md` around the full pipeline (TTS -> STT -> logic -> store) with 5 milestones: TTS PoC, STT PoC, offline conversation loop with info extraction, Fleebee backend integration, telephony.
+- Added `call-center/STT_MODEL_OPTIONS.md`: start with `mbazaNLP/Whisper-Small-Kinyarwanda` (~33% WER, same Transformers stack), fallbacks mbazaNLP NeMo conformer, Meta MMS ASR (`kin` adapter), SpeechBrain wav2vec2. Key design note: guide bikers toward short predictable answers (YEGO/OYA) since numbers and place names are the risky part.
+- Milestone 1 (TTS PoC with `facebook/mms-tts-kin`) is unchanged and still the next step.
+
+### Milestone 1 executed (same day)
+
+- Created `call-center/.venv` (Python 3.13.7) with CPU-only torch 2.13, transformers 5.14, scipy 1.18; added `call-center/.gitignore` for `.venv/` and `__pycache__/`.
+- Wrote `call-center/synthesize.py` (small CLI: default samples or one phrase + output path) and generated three Kinyarwanda WAVs in `call-center/samples/`: greeting, a Fleebee dispatch phrase, and a yego/oya question.
+- Verified the WAVs contain real non-silent audio (16 kHz mono float32, peak ~0.2-0.3).
+- Performance on this laptop CPU: ~5x faster than real-time (9.2s of audio synthesized in 1.8s; model loads in ~55s first time). Live-call generation looks feasible.
+
+### Next steps (updated)
+
+- Richard (or another Kinyarwanda speaker) listens to `call-center/samples/*.wav` and judges intelligibility, naturalness, and whether tone errors change meaning; record the verdict in `call-center/TTS_MODEL_OPTIONS.md`.
+- If quality passes: start milestone 2 (STT proof of concept with `mbazaNLP/Whisper-Small-Kinyarwanda` in the same venv).
+- If quality fails: try KinyaTTS.
+
+### Call content wired to existing SMS templates (same day)
+
+- Decision: calls will speak the operator's existing Fleebee SMS templates (the `SmsTemplate` table, Kinyarwanda bodies with `{{firstName}}`, `{{plate}}`, `{{fineAmount}}`, `{{fineReason}}`, `{{nextPaymentDate}}`, `{{batchName}}` placeholders) — no separate call scripts to maintain.
+- Added `call-center/speak_templates.py`: loads active templates from `fllee-backend/fleebee.db` (falls back to `DEFAULT_SMS_TEMPLATES` in `workflow-defaults.js` via node when the DB is empty), renders placeholders with the same regex as backend `renderTemplateBody()`, and synthesizes each to `call-center/samples/templates/<stage>-<category>-<urgency>.wav`. Supports `--list` preview and `--stage/--category/--urgency` filters plus per-biker context flags.
+- All 16 default templates synthesized successfully (~2 min of audio in 27.5s CPU).
+- Note: `/api/templates` requires the dashboard login session, so the PoC reads SQLite directly; the future service integration should either use an authenticated API call or a shared DB path.
+
+### Next steps (updated)
+
+- Listen to `call-center/samples/templates/*.wav` — pay special attention to plate numbers, amounts, and dates (digits/Latin sequences are the likely TTS weak spots). Record verdicts in `call-center/TTS_MODEL_OPTIONS.md`.
+- If digits/plates sound wrong, add a Kinyarwanda number/letter verbalizer step before synthesis (spell out digits in words).
+- Then milestone 2: STT proof of concept with `mbazaNLP/Whisper-Small-Kinyarwanda`.
+
+### Production template texts snapshotted for TTS (same day)
+
+- Richard provided the 17 real production templates from the dashboard (they differ from code defaults: no "Muraho" prefix, plus a new AUTHORIZATION_COMPLETED template about picking up the RURA permit at the Notaire in Kicukiro).
+- Saved them to `call-center/templates.snapshot.json`; `speak_templates.py` now loads DB -> snapshot -> code defaults, so the PoC speaks the real texts. Re-export the snapshot when the operator edits templates.
+- Regenerated all WAVs in `call-center/samples/templates/` from the production texts (17 templates, ~2.5 min of audio in 27s CPU).
+
+### A/B test audios generated + tokenizer findings (same day)
+
+- Generated `call-center/samples/ab-tests/`: 12 paired WAVs testing digits vs Kinyarwanda words (amount 5000 vs "ibihumbi bitanu", date 2026-08-01 vs "ku ya mbere Kanama", time 10:30 vs "saa ine n'igice", plate raw vs spelled out, "reminder" vs "urwibutso", "plaque" vs "purake").
+- Tokenizer inspection of `facebook/mms-tts-kin`: 45-char vocab; letters q and x are SILENTLY DROPPED ("plaque" is synthesized as "plaue" — affects ~8 templates). Digits 0-9 are in vocab but digit sentences produce suspiciously short audio (1.3s for a full date), suggesting the model barely voices numbers.
+- Implication: a verbalizer pre-processing step (digits -> Kinyarwanda words, q/x respellings like plaque->purake) is very likely needed regardless of overall voice quality. Richard's A/B listening verdict decides the exact rules.
+
+## 2026-07-26
+
+### What changed
+
+- Investigated why Fleebee is reachable on `http://192.168.1.50:4100` but not on the previously used public IP `http://41.216.122.219:4100`.
+- Verified on the home computer that `fleebee.service` is active and Node is listening on `*:4100`, so the app is not bound to localhost only.
+- Confirmed from outside the sandbox that:
+  - `http://41.216.122.219:4100` times out
+  - `http://41.173.248.47:4100/health` returns Fleebee `{"status":"ok","service":"fleebee-app","storage":"sqlite"}`
+  - `http://41.173.248.47:4100/app-config.js` returns the live Fleebee browser config
+- Queried the home computer's current outbound public IPv4 and found `41.173.248.47`, while `fleebee.esonga.online` still resolves to `41.216.122.219`.
+
+### Decisions made and why
+
+- Treated this as a WAN/DNS exposure issue, not a backend code bug, because the live service is healthy on `.50`, listens on all interfaces, and answers correctly through the current public IP.
+- Did not change runtime config or deployment files yet because the first required fix is aligning public DNS / public-IP usage, not changing the app server.
+
+### Current state
+
+- The LAN endpoint remains healthy at `http://192.168.1.50:4100`.
+- The current reachable public HTTP endpoint is `http://41.173.248.47:4100`.
+- The old public IP `41.216.122.219` is stale for Fleebee and no longer reaches the app.
+- `fleebee.esonga.online` is currently stale too because it still points at `41.216.122.219`.
+- Standard public web exposure on `80/443` is still not live; direct `http://41.173.248.47/` timed out, which matches the earlier note that no reverse proxy is installed yet.
+
+### Next steps
+
+- Update DNS for `fleebee.esonga.online` to the current public IP `41.173.248.47`, or switch testing to `http://41.173.248.47:4100` immediately.
+- If the public IP changes often, add a DDNS-friendly update path or move to the planned reverse-proxy/domain setup on `80/443`.
+- Before broader public exposure, replace the weak test password and finish the intended HTTPS reverse proxy setup.
+
+## 2026-07-26
+
+### What changed
+
+- Added a rootless public-proxy deployment bundle under `deploy/home-computer/`:
+  - `Caddyfile.rootless`
+  - `caddy-fleebee.service`
+  - `install-user-caddy-proxy.sh`
+  - `restart-proxy.sh`
+- Installed and started `caddy-fleebee.service` on the home computer as the `richard` user.
+- Confirmed the user-level proxy on `.50` listens on:
+  - `8080` for HTTP
+  - `8443` for HTTPS
+  - and proxies to Fleebee on `127.0.0.1:4100`
+- Updated the router mappings so public traffic now reaches the rootless proxy:
+  - `80 -> 8080`
+  - `443 -> 8443`
+- Confirmed from the live Caddy logs that Let's Encrypt validation succeeded and the certificate for `fleebee.esonga.online` was obtained successfully on `2026-07-26`.
+- Confirmed public behavior on the current IP:
+  - `http://41.173.248.47` redirects to `https://fleebee.esonga.online/`
+  - `https://41.173.248.47` with `Host/SNI fleebee.esonga.online` reaches Fleebee through Caddy
+- Removed an accidental laptop-local `caddy-fleebee.service` and `~/fleebee/proxy` created during manual command testing, leaving only the real home-computer proxy active.
+- Updated `README.md`, `DEPLOYMENT.md`, and `deploy/home-computer/README.md` to match the new live deployment shape.
+
+### Decisions made and why
+
+- Used a rootless Caddy deployment instead of a root-owned `80/443` install because the home computer requires a sudo password, has no Docker available, and cannot bind privileged ports as the normal user.
+- Chose router translation `80 -> 8080` and `443 -> 8443` so public HTTPS could be completed immediately without waiting for root access.
+- Kept direct `4100 -> 4100` forwarding in place so the old direct-IP troubleshooting path still works during DNS propagation and future debugging.
+
+### Current state
+
+- `fleebee.service` is active on `.50` and serves the backend on `*:4100`.
+- `caddy-fleebee.service` is active on `.50` and serves the public reverse proxy on local `8080/8443`.
+- `fleebee.esonga.online` now has a valid Let's Encrypt certificate on the live home-computer proxy.
+- Public SSH is confirmed on `41.173.248.47:2222`.
+- Public direct Fleebee is confirmed on `http://41.173.248.47:4100`.
+- Public hostname service is live at `https://fleebee.esonga.online`, but some DNS resolvers were still serving the older `41.216.122.219` during this session, so not every network may see the new IP yet.
+
+### Next steps
+
+- Let DNS propagation finish on resolvers still caching `41.216.122.219`, then prefer testing with `https://fleebee.esonga.online`.
+- Replace the weak public-facing passwords and session secret before treating the system as broadly exposed production.
+- If the ISP keeps changing the WAN IP, add a DDNS-friendly update path or another stable DNS automation flow.
+- Run `sudo loginctl enable-linger richard` on the home computer so both user-level services survive SSH logout without depending on the current session.
+
+### Pending tasks to carry forward
+
+- Confirm from the actual operator devices that `fleebee.esonga.online` now resolves to `41.173.248.47` and opens over HTTPS without using the direct-IP fallback.
+- Rotate the live public-facing credentials and secret material in `~/fleebee/shared/.env`, then restart `fleebee.service` and `caddy-fleebee.service`.
+- Decide whether to keep manual DNS updates or implement DDNS / another automatic public-IP update path.
+
+## 2026-07-27
+
+### What changed
+
+- Added a new premium strategy framework section to the top of the dashboard overview page in `flee-frontend/public/index.html`.
+- Styled the new overview hero in `flee-frontend/public/assets/css/styles.css` with a white executive-card look, soft gradients, rounded cards, subtle shadows, and responsive behavior.
+- Implemented the four-stage cycle exactly as:
+  - `BUILD`
+  - `PROTECT`
+  - `UPGRADE`
+  - `REBALANCE`
+- Added the supporting `Decision Compass` checklist and the closing quote block below the framework.
+- Reverted an initial detour on the login page after clarifying that the framework belongs inside the protected overview dashboard, not on the public sign-in screen.
+
+### Decisions made and why
+
+- Put the new illustration on the overview page instead of the login page because the user clarified that the daily strategy reminder should live inside the dashboard itself.
+- Kept the implementation HTML/CSS-only so it remains easy to deploy, fast to render, and independent from the dashboard API logic.
+- Left the operational dashboard panels below the new hero untouched so the system health, schedules, and recent SMS views still behave the same.
+
+### Current state
+
+- The overview page now starts with a large strategy hero that presents the four-stage cycle, decision checklist, and quote before the existing workflow panels.
+- The login page has been returned to its earlier protected-dashboard layout.
+- No backend or API behavior was changed for this work.
+- Local browser-style preview could not be launched from this sandbox because opening a listening socket is blocked here, so validation was done by inspecting the final markup/CSS and will be followed by deployment verification on the home computer.
+
+### Next steps
+
+- Sync the updated frontend assets to the home computer with the standard deploy helper.
+- Restart `fleebee.service` if needed after sync and verify the new overview HTML is present on `.50`.
+- If the user wants further refinement after seeing it live, tune spacing, arrow positioning, or typography directly against the deployed page.
+
+## 2026-08-07
+
+### What changed
+
+- Investigated the current public reachability failure reported for Fleebee without changing runtime config or deployment files.
+- Verified over LAN SSH that the home computer backend and proxy are both healthy:
+  - `fleebee.service` is active
+  - `caddy-fleebee.service` is active
+  - `http://127.0.0.1:4100/health` returns the normal SQLite-backed `ok` status
+- Queried the home computer's current outbound public IPv4 and found it has changed again to `196.12.147.159`.
+- Confirmed that `fleebee.esonga.online` still resolves on the home computer to the older IP `41.173.248.47`.
+- Confirmed that the older IP no longer answers Fleebee traffic from the home computer checks, while the new IP does answer the live proxy path when forced with `Host/SNI fleebee.esonga.online`.
+- Confirmed that the repo and live proxy configuration are built around `fleebee.esonga.online`, not `fleebee.esonga.com`.
+
+### Decisions made and why
+
+- Treated this as a public-IP/DNS drift problem, not an application outage, because both user services are running and the backend health endpoint is healthy locally.
+- Did not change DNS or redeploy anything from the repo because the first corrective action is outside the app code: update the public DNS target to the new WAN IP.
+- Called out the `.com` hostname explicitly because using `fleebee.esonga.com` will not match the current configured public domain for the proxy/certificate path.
+
+### Current state
+
+- As of `2026-08-07`, the home computer's observed public IPv4 is `196.12.147.159`.
+- As of `2026-08-07`, the configured public hostname in repo docs and runtime config remains `https://fleebee.esonga.online`.
+- As of `2026-08-07`, `fleebee.esonga.online` is stale because it still points to `41.173.248.47`.
+- As of `2026-08-07`, the old IP `41.173.248.47` no longer appears to be the live WAN IP for Fleebee.
+- As of `2026-08-07`, the internal Fleebee stack on `.50` is still healthy and the reverse proxy can answer through the new public IP when addressed correctly.
+
+### Next steps
+
+- Update the DNS `A` record for `fleebee.esonga.online` from `41.173.248.47` to `196.12.147.159`.
+- Test `https://fleebee.esonga.online` again from an outside network after DNS refresh begins.
+- If users have been trying `fleebee.esonga.com`, switch them to `fleebee.esonga.online` or intentionally provision `.com` as an additional hostname if that is now the desired public domain.
+- Add DDNS or another automated DNS update path if the ISP continues rotating the public IP.
+
+## 2026-08-07
+
+### What changed
+
+- Recorded the follow-up DNS change for public Fleebee access.
+- User updated the DNS records so that:
+  - apex `esonga.online` stays on `A @ -> 208.91.197.13` for the under-construction page
+  - subdomain `fleebee.esonga.online` now points to `A fleebee -> 196.12.147.159`
+  - the Fleebee subdomain TTL is set to `4 Hours`
+- Rechecked from the home computer after the change and found:
+  - current observed WAN IP is still `196.12.147.159`
+  - local resolver on the home computer still returns the previous Fleebee IP `41.173.248.47`
+
+### Decisions made and why
+
+- Treated the DNS edit as the correct immediate recovery action because the backend and proxy were already confirmed healthy on the home computer.
+- Kept the progress note explicit about propagation status so later sessions do not mistake cached DNS for a failed update.
+- Left the apex record alone in the notes because the current intent is clearly that only `fleebee.esonga.online` should serve Fleebee, while the root domain remains parked.
+
+### Current state
+
+- As of `2026-08-07`, the intended Fleebee public hostname target is now `196.12.147.159`.
+- As of `2026-08-07`, the home computer itself still resolves `fleebee.esonga.online` to the older `41.173.248.47`, so propagation or local DNS caching is still in progress.
+- As of `2026-08-07`, the backend remains healthy locally and the new public IP still matches the live WAN IP.
+- The root domain `esonga.online` is still expected to show the under-construction page and is not part of the Fleebee app cutover.
+
+### Next steps
+
+- Wait for DNS propagation or cache expiry on resolvers still serving `41.173.248.47`.
+- Recheck `https://fleebee.esonga.online` from an outside network after the TTL window begins to clear.
+- If public reachability keeps breaking after future ISP IP rotations, implement DDNS or move the stable public backend role to cloud hosting.
+
+## 2026-08-09
+
+### What changed
+
+- Investigated a fresh "nothing opening" report without changing runtime config, deployment scripts, or app code.
+- Confirmed from the laptop that it is currently on the same LAN subnet as the documented home computer path:
+  - laptop address `192.168.1.70/24`
+  - router `192.168.1.254`
+- Rechecked the old LAN anchor `192.168.1.50` and found it is not reachable at all:
+  - `ping 192.168.1.50` returned 100% packet loss
+  - ARP for `192.168.1.50` stayed `incomplete`
+  - `http://192.168.1.50:4100/health` did not connect
+- Ran a LAN host discovery scan and found only three live devices:
+  - this laptop at `192.168.1.70`
+  - one unrelated device at `192.168.1.72`
+  - the router at `192.168.1.254`
+- Checked the current public DNS for `fleebee.esonga.online` and confirmed it now resolves to `196.12.147.159`, so the older `41.173.248.47` value in July docs is now historical.
+- Confirmed the laptop's own current public IP is also `196.12.147.159`, which means same-WAN public tests from this laptop can be affected by router hairpin/NAT-loopback behavior and are not the best proof of outside reachability.
+- Reproduced and then repaired a separate local backend boot issue in the repo:
+  - Prisma's SQLite adapter initially failed because the installed `better-sqlite3` binary expected `libnode.so.115`
+  - this machine currently has Node `v22.22.1` with `/usr/lib/x86_64-linux-gnu/libnode.so.127`
+  - rebuilding `better-sqlite3` outside the sandbox restored the native module for the current local Node runtime
+  - after the rebuild, local `npm start` proceeds past Prisma startup and only stops at sandbox socket-bind restrictions (`listen EPERM`)
+
+### Decisions made and why
+
+- Treated the main live problem as host reachability, not a frontend regression, because the documented Fleebee machine is absent from the LAN and does not answer its service port.
+- Treated the public-IP/DNS situation as updated but not the primary failure, because DNS now points to the new IP yet the app still cannot be reached while the `.50` machine itself is missing locally.
+- Kept the local native-module/runtime issue separate from the live outage because it affects local repo booting, but it does not by itself prove what the home computer is doing.
+
+### Current state
+
+- As of `2026-08-09`, the expected Fleebee home computer is not visible on the LAN at `192.168.1.50`.
+- As of `2026-08-09`, the only other discovered LAN device `192.168.1.72` is not the Fleebee host:
+  - SSH on `22` is closed
+  - Fleebee-related ports `4100`, `8080`, and `8443` are closed
+- As of `2026-08-09`, `fleebee.esonga.online` resolves publicly to `196.12.147.159`.
+- As of `2026-08-09`, the local repo Prisma/native-module issue has been repaired on this laptop by rebuilding `better-sqlite3`.
+- As of `2026-08-09`, local backend boot now gets as far as opening the HTTP listener; the remaining `listen EPERM` here is a sandbox limitation, not a Fleebee app startup error.
+
+### Next steps
+
+- Physically check the home computer and router-side connection first:
+  - is the Fleebee computer powered on
+  - is it actually connected to the `192.168.1.x` network
+  - did its LAN IP change outside the expected `.50` reservation
+- Once the machine is back on the LAN, re-run the normal checks:
+  - `ssh richard@192.168.1.50`
+  - `curl http://127.0.0.1:4100/health` on the host
+  - `systemctl --user status fleebee.service`
+  - `systemctl --user status caddy-fleebee.service`
+- If local Node is upgraded again later, rebuild `better-sqlite3` against that runtime before relying on local `npm start` for repo-side debugging.
+
+## 2026-08-09
+
+### What changed
+
+- Reworked the overview page's `Decision Operating System` area to be compact, generic, and much shorter vertically.
+- Removed the oversized multi-card strategy framework, checklist, and quote stack from the top of [flee-frontend/public/index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/index.html).
+- Replaced it with a single slim banner that keeps:
+  - a short heading
+  - one short summary sentence
+  - four simple action chips: `Prioritize`, `Simplify`, `Protect`, `Improve`
+- Updated the supporting CSS in [flee-frontend/public/assets/css/styles.css](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/css/styles.css) so the section stays compact and responsive.
+- Copied only those two frontend files to the live home-computer release tree at:
+  - `~/fleebee/current/flee-frontend/public/index.html`
+  - `~/fleebee/current/flee-frontend/public/assets/css/styles.css`
+- Verified on `richard-Vostro-230` that the updated files are present and `fleebee.service` is still `active`.
+
+### Decisions made and why
+
+- Deployed only the two touched frontend files instead of the whole repo because the worktree contains unrelated in-progress changes and those should not be pushed accidentally.
+- Did not restart `fleebee.service` because the backend serves static files directly from disk, so the updated frontend assets can be picked up by a normal browser refresh.
+
+### Current state
+
+- As of `2026-08-09`, the live Fleebee home computer is back online and serving the updated compact overview banner.
+- As of `2026-08-09`, the `Decision Operating System` section on the overview page is now a slim, generic strip rather than a tall strategy block.
+
+### Next steps
+
+- Refresh `https://fleebee.esonga.online`.
+- If spacing still feels too tall after seeing it live, trim the heading size or chip padding one more step.
+
+## 2026-08-09
+
+### What changed
+
+- Made the follow-up copy adjustment to the compact overview banner.
+- Removed the visible heading `Keep decisions simple and repeatable.` from the `Decision Operating System` strip in [flee-frontend/public/index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/index.html).
+- Replaced the temporary generic chip labels with the original stage wording:
+  - `Build`
+  - `Protect`
+  - `Upgrade`
+  - `Rebalance`
+- Copied the updated `index.html` to `~/fleebee/current/flee-frontend/public/index.html` on the home computer.
+- Verified on `richard-Vostro-230` that the live file contains the new wording and `fleebee.service` is still `active`.
+
+### Decisions made and why
+
+- Kept this deploy limited to `index.html` only because the CSS did not need another change and the worktree still contains unrelated in-progress edits.
+- Switched the section to `aria-label` instead of a visible heading so the banner can stay title-free without losing an accessible label.
+
+### Current state
+
+- As of `2026-08-09`, the live overview banner shows only the `Decision Operating System` kicker, the short summary sentence, and the four original stage chips.
+
+### Next steps
+
+- Refresh `https://fleebee.esonga.online`.
+- If you want the summary sentence shortened too, trim that line next.
+
+## 2026-08-09
+
+### What changed
+
+- Updated the shared bundle-card parser in [flee-frontend/public/assets/js/app.js](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/js/app.js) so the purchased Airtel-style USSD reply now extracts useful fields instead of leaving both bundle rows as `Not found`.
+- Added optional bundle detail rows to:
+  - [flee-frontend/public/bundles.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/bundles.html)
+  - [flee-frontend/public/index.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/index.html)
+  - [flee-frontend/public/gateway.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/gateway.html)
+- The dashboard can now surface, when present:
+  - bundle plan
+  - voice bundle perks
+  - loaded SMS bundle with expiry
+  - daily data bundle with expiry
+  - buy-again guidance
+  - SMS usage counted since the bundle check timestamp
+- Verified the browser script syntax with `node --check flee-frontend/public/assets/js/app.js`.
+
+### Decisions made and why
+
+- Kept the change frontend-only because the backend already stores the raw USSD reply and does not need schema or API changes for this format.
+- Scoped the new SMS usage counter to purchased-bundle style replies only, so older legacy replies that likely show remaining SMS do not get misread as the original loaded cap.
+- Reused the same markup on overview and gateway because those pages share the same bundle renderer and should stay consistent with `/bundles.html`.
+
+### Current state
+
+- As of `2026-08-09`, a reply like `3000_Bundle:Unlimited Calls (Airtel) + 200 SMS + 1024MB/day EXP 2026-09-07 ...` now maps to visible bundle fields instead of `Not found`.
+- As of `2026-08-09`, the bundle UI can show `Buy again` guidance using the parsed expiry date `2026-09-07` and carrier short code when the reply includes it.
+
+### Next steps
+
+- Refresh the bundle page with a fresh carrier reply and confirm the live values match the phone's latest USSD message.
+- If needed later, add a dedicated account-balance row for values like `MA:1998.77RWF` and `Money:0.00RWF`.
+
+## 2026-08-09
+
+### What changed
+
+- Added a one-line bundle purchase reminder under the `/bundles.html` page header in [flee-frontend/public/bundles.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/bundles.html).
+- The new line tells operators how to buy bundles from an MTN number to the Airtel phone by dialing `*662#` and choosing `1`.
+
+### Decisions made and why
+
+- Kept this change limited to `/bundles.html` because the request was specifically for that page header and did not require changing the shared bundle cards elsewhere.
+
+### Current state
+
+- As of `2026-08-09`, the `/bundles.html` page now shows the MTN-to-Airtel bundle purchase reminder directly below the existing workflow description.
+
+### Next steps
+
+- Refresh `/bundles.html` and confirm the reminder text reads clearly in the header area.
+
+## 2026-08-09
+
+### What changed
+
+- Deployed the latest bundle-page frontend changes to the home computer at `192.168.1.50` by copying only these files into `~/fleebee/current/`:
+  - `flee-frontend/public/assets/js/app.js`
+  - `flee-frontend/public/bundles.html`
+  - `flee-frontend/public/index.html`
+  - `flee-frontend/public/gateway.html`
+- Verified on the home computer release tree that:
+  - `bundles.html` contains the MTN-to-Airtel purchase reminder with `*662#`
+  - `app.js` contains the new bundle parser helper `normalizeBundleSnippet`
+- Verified `fleebee.service` is still `active` after the selective frontend deploy.
+
+### Decisions made and why
+
+- Deployed only the touched bundle frontend files because the local worktree contains unrelated in-progress changes that should not be pushed to the live home computer.
+- Did not restart `fleebee.service` because these are static frontend assets served from disk and should be picked up on the next browser refresh.
+
+### Current state
+
+- As of `2026-08-09`, the home computer release tree on `192.168.1.50` includes the new bundle parser and the `/bundles.html` purchase reminder.
+- As of `2026-08-09`, `fleebee.service` remains active after the deploy.
+
+### Next steps
+
+- Refresh the live bundle page in the browser and confirm the new reminder line and bundle parsing are visible after login.
+
+## 2026-09-19
+
+### What changed
+
+- Investigated the public Fleebee outage without changing the deployment or DNS.
+- Confirmed the home computer is reachable on the LAN and currently reports WAN IPv4 `41.216.116.163`.
+- Confirmed public DNS for `fleebee.esonga.online` still resolves to the previous WAN IPv4 `196.12.147.159`.
+- Confirmed the stale hostname and old direct-IP endpoint time out from an outside-network probe.
+- Confirmed the current IP is publicly reachable:
+  - `http://41.216.116.163:4100/health` returns Fleebee health status `ok`.
+  - HTTPS on `41.216.116.163:443`, when tested with `fleebee.esonga.online` as Host/SNI, returns Fleebee health status `ok` through Caddy.
+- Confirmed on `192.168.1.50` that `fleebee.service` and `caddy-fleebee.service` are active, ports `4100`, `8080`, and `8443` are listening, and user lingering is enabled.
+- Checked current capacity for cloud-sizing context: the Node process uses about `143280 KiB` RSS and the live SQLite database is about `260K`.
+
+### Decisions made and why
+
+- Classified the outage as another dynamic-WAN-IP/DNS mismatch, not an application, Caddy, TLS, or router-forwarding failure.
+- Did not update external DNS because this session was an investigation and recommendation request, not authorization to change DNS.
+- Recommended considering a small DigitalOcean Droplet for production reliability because the WAN IP has now changed repeatedly and manual DNS updates have caused recurring public outages; DDNS remains the lower-cost alternative if occasional home power/ISP downtime is acceptable.
+
+### Current state
+
+- As of `2026-09-19`, Fleebee is healthy on the home computer but unavailable at its normal public hostname because DNS points to stale IP `196.12.147.159` instead of current IP `41.216.116.163`.
+- The live router forwarding and Caddy HTTPS path work on current IP `41.216.116.163`.
+
+### Next steps
+
+- Restore the hostname immediately by changing the `fleebee.esonga.online` DNS `A` record to `41.216.116.163`.
+- Choose between automated DDNS for the home deployment and moving the backend/UI/SQLite database to a small cloud VM.
+- If moving to DigitalOcean, use at least the 1 GiB Basic Droplet, configure backups and firewalling, migrate SQLite safely, and point the Android gateway at the cloud HTTPS hostname.
+
+## 2026-09-19 — Fine monitor architecture
+
+### What changed
+
+- Created the root-level [fine-monitor/README.md](/home/richard/APPS/SALVI/2026/fleebee-management/fine-monitor/README.md) and [fine-monitor/PLAN.md](/home/richard/APPS/SALVI/2026/fleebee-management/fine-monitor/PLAN.md).
+- Documented the proposed service boundary, daily schedule, Playwright browser flow, stable selector strategy, parser contract, normalized outcomes, API contracts, schema changes, dashboard integration, security controls, deployment shape, tests, rollout phases, and acceptance criteria.
+- Updated [architecture.md](/home/richard/APPS/SALVI/2026/fleebee-management/architecture.md) with the planned Fine Monitor extension and added `fine-monitor/` to the repository shape.
+- Updated [README.md](/home/richard/APPS/SALVI/2026/fleebee-management/README.md) to list the planned root-level service.
+- Marked the older [fllee-backend/microservices/irembo-fines/PLAN.md](/home/richard/APPS/SALVI/2026/fleebee-management/fllee-backend/microservices/irembo-fines/PLAN.md) as superseded so there is one authoritative plan.
+- Inspected the live Irembo target page and confirmed it is a JavaScript-rendered Angular application rather than a server-rendered table.
+- Checked Irembo's public `robots.txt` on `2026-09-19`: regular pages are allowed while `/irembo/rest/` is disallowed.
+
+### Decisions made and why
+
+- Chose Playwright automation of the visible form rather than direct private API calls because the page is client-rendered and the published robots policy disallows the REST path.
+- Chose semantic selectors (`value=PLATE_NUMBER`, `formcontrolname`, result-column names, roles, and visible text) instead of generated Angular IDs/classes because generated values such as `mat-radio-2` are brittle.
+- Kept Fleebee as the system of record. The scraper will obtain targets and submit results through a private token-authenticated API; it will not share or write the Fleebee SQLite file.
+- Defined `FOUND`, `CLEAR`, `FAILED`, and `SKIPPED` as distinct results so a scraper outage cannot be mistaken for a plate with no fines.
+- Chose the Irembo ticket number as the primary deduplication key and preserved historical fines when a later successful check reports none.
+- Kept the taxpayer number as a worker-only environment secret and intentionally did not place the provided value in repository files.
+- Kept first-release ingestion read-only from the operator's perspective and disabled automatic biker SMS. Existing manual fine creation can send notifications, so scraper ingestion requires a separate idempotent internal route.
+- Required sequential daily checks with randomized delays, bounded retries, one active run, and a circuit breaker. CAPTCHA or anti-bot controls must stop the run rather than be bypassed.
+
+### Current state
+
+- `fine-monitor/` contains architecture documentation only; no package, browser runtime, backend routes, schema migration, scheduler, or dashboard page has been implemented or deployed.
+- The planned page title is `Contraventions`; the navigation label is `Check fines` under `Operations`, immediately below `Bundle Check`.
+- The planned primary table columns are plate number, biker name, issued date, due date, reason, and amount. Ticket number is retained as secondary detail and the external idempotency key.
+
+### Next steps
+
+- Complete Phase 0: confirm authorization/current Irembo terms and manually validate one authorized plate flow, including fine-found and no-fine states, without bypassing site controls.
+- Implement backward-compatible Prisma/check-run models and private service-token API contracts with tests.
+- Scaffold the Node.js/Playwright worker under `fine-monitor/` and test against local sanitized fixtures before any scheduled live run.
+- Add the session-protected `Contraventions` page and `Check fines` sidebar link only after backend ingestion and run-health semantics are working.
+- Deploy in canary mode for one authorized plate, compare the stored output with Irembo, then enable the daily all-plate schedule.
+
+## 2026-09-19 — Fine Monitor one-plate implementation
+
+### What changed
+
+- Implemented the Fine Monitor vertical slice under [fine-monitor/](/home/richard/APPS/SALVI/2026/fleebee-management/fine-monitor):
+  - Node.js one-shot worker
+  - Playwright browser automation
+  - current Irembo service-card and `Apply` navigation handling
+  - semantic plate radio/form/result selectors
+  - normalized date and RWF amount parsing
+  - Fleebee private service-token client
+  - parser tests
+- Extended the Prisma schema with Irembo source/ticket identity and fine lifecycle fields plus `FineCheckRun` and `FineCheckTargetResult` operational history.
+- Added private, bearer-token authenticated ingestion routes for starting a run, recording one target result, and completing the run.
+- Added the session-protected `GET /api/contraventions` operator endpoint.
+- Added [contraventions.html](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/contraventions.html) and [contraventions.js](/home/richard/APPS/SALVI/2026/fleebee-management/flee-frontend/public/assets/js/contraventions.js).
+- Added `Check fines` under `Operations`, immediately below `Bundle Check`, on every dashboard page containing the shared sidebar.
+- Backed up the live SQLite database before migration to `/home/richard/fleebee/backups/fleebee-before-fine-monitor-20260919-131416.db`.
+- Deployed the additive schema, backend routes, page, worker, dependencies, and user-local Playwright Chromium to `192.168.1.50`.
+- Reconciled `RL812Q` from the existing legacy `Biker.bikePlate` record into one current `Bike` record linked to biker `Sindikubwayo`; no other legacy plates were migrated or checked.
+- Ran the production one-plate canary successfully and persisted:
+  - ticket `TK1788537689123`
+  - issued `2026-09-04`
+  - due `2026-10-04`
+  - reason `Dangerous parking`
+  - amount `RWF 10,000`
+
+### Decisions made and why
+
+- Kept the worker as a manually invoked one-shot canary. No systemd timer, daily scheduler, or all-plate loop was added because operator approval for the remaining plates is still pending.
+- Navigated through Irembo's visible service preview and `Apply` button because direct deep-link loading currently redirects to the services page and opens the traffic-fine preview.
+- Clicked the visible Angular radio label instead of forcing the hidden input because the hidden input click did not update Angular form state.
+- Ignored the pre-existing informational TIN alert and waited only for result rows, a danger result alert, CAPTCHA, or timeout.
+- Used the external ticket number as the idempotency key and stored scraper results with `notifyRecipient=false`; the verified production row has no SMS message id.
+- Kept the worker TIN and shared service token only in mode-`600` home-computer environment files.
+
+### Verification
+
+- Fine Monitor parser tests pass.
+- Backend temp-database integration test completed a run, stored one fine, and returned it through the operator response model.
+- The live worker completed with `state=FOUND`, `fineCount=1`, and run status `COMPLETED`.
+- A read-only live database/service check confirmed plate `RL812Q`, biker `Sindikubwayo`, the expected ticket fields, `source=irembo`, `notifyRecipient=false`, and no SMS created.
+- The deployed homepage file contains one `Check fines` link and the deployed Contraventions page is present.
+- Anonymous access to `/contraventions.html` redirects to login, confirming dashboard session protection remains active.
+
+### Current state
+
+- Open `http://192.168.1.50:4100/`, sign in normally, and choose `Operations` -> `Check fines` to see the completed one-plate response and fine row.
+- Fleebee and Caddy remain active; the new worker is not a continuously running public service.
+- Only `RL812Q` has been checked. The remaining legacy plate records and daily loop remain untouched.
+
+### Next steps
+
+- Operator verifies the new page and returned row in the browser.
+- After explicit approval, reconcile the remaining legacy plates into `Bike` records, add sequential all-plate coordination with randomized delays/retries, and enable the daily schedule.
+
+## 2026-09-19 — Fine Monitor all-plate dashboard and schedule
+
+### What changed
+
+- Replaced the previous Fine Monitor status/checked-response blocks with:
+  - a ranked `Contraventions by biker` table
+  - contravention count, last checked date/time, and per-biker RWF total
+  - an overall RWF total
+  - a `List of contraventions` table grouped by biker rank
+- Changed `Refresh` into a real server-side Fine Monitor launch. The button now
+  shows a loader, stays disabled while the browser polls, and reports completed
+  target progress.
+- Added an authenticated daily/weekly automatic-frequency selector beside the
+  page's `Updated` timestamp.
+- Added the backend worker launcher, one-active-process lock, daily/weekly
+  setting persistence, once-per-minute schedule polling, interrupted-run
+  reconciliation, and explicit worker executable/script/environment paths.
+- Extended the worker from one target to sequential multi-target processing,
+  including 3–7 second randomized spacing, bounded transient retries, and a
+  CAPTCHA stop condition.
+- Added automatic reconciliation of unique legacy `Biker.bikePlate` values into
+  linked `Bike` records when they enter a check run.
+- Updated the home-computer release sync to include `fine-monitor/` while still
+  excluding its environment file and `node_modules`.
+- Backed up the live database before the rollout to
+  `/home/richard/fleebee/backups/fleebee-before-all-plate-refresh-20260919.db`.
+- Deployed and ran the first explicitly authorized all-plate validation on the
+  home computer.
+
+### Decisions made and why
+
+- Kept the worker as a one-shot child process launched by the existing Fleebee
+  service, avoiding another public port or continuously running microservice.
+- Stored the schedule frequency in `AppSetting` and anchored the next run to the
+  most recent completed attempt, so changing daily/weekly does not create
+  overlapping runs.
+- Continued to keep the TIN only in the mode-`600` protected worker environment;
+  it is not returned to the browser, stored in SQLite, or committed.
+- Kept `RM777T` as a failed result because Irembo reported that the plate and TIN
+  do not match. It was not converted into a false clear result and is not retried
+  as a transient browser failure.
+- Kept scraper-created fines notification-free, so the all-plate run did not
+  create biker SMS messages.
+
+### Verification
+
+- Node syntax checks passed for the backend runner, worker, and frontend script.
+- Fine Monitor parser tests pass.
+- A temporary-database integration test completed a two-biker run, ranked a
+  biker with two fines first, calculated `RWF 15,000`, and persisted `weekly`.
+- The production all-plate run attempted 13 plates and finished `PARTIAL` with:
+  - 11 current fines
+  - 3 explicit clear results
+  - 1 failed plate/TIN match
+  - 0 skipped targets
+  - total current amount `RWF 141,000`
+- Production ranking currently places `Nishimwe` first with 3 contraventions and
+  a total of `RWF 33,000`.
+- Fleebee remains active, `/health` returns `ok`, and anonymous access to
+  `/contraventions.html` still redirects to login.
+- A repository scan found no committed taxpayer number or live service token;
+  only the documented placeholder is present.
+
+### Current state
+
+- `FINE_MONITOR_PLATE` is blank in the protected live environment, so manual and
+  scheduled runs now cover all 13 eligible registered plates.
+- Automatic frequency defaults to `daily`; the next run is anchored 24 hours
+  after the completed validation unless an operator changes it to `weekly`.
+- The page is live at `http://192.168.1.50:4100/contraventions.html` after normal
+  dashboard login.
+
+### Next steps
+
+- Operator refreshes the page and confirms the loader, ranking table, grouped
+  list, and daily/weekly selector in the browser.
+- Correct the Fleebee plate/TIN ownership data for `RM777T`/`Ngaboyisonga`, then
+  use Refresh to recheck it in the next all-plate run.
+
+## 2026-09-19 — Contravention contact columns and weekly default
+
+### What changed
+
+- Updated Fine Monitor biker display names to combine the stored family/name
+  and first-name fields, for example `Nishimwe Jean Claude`.
+- Added the biker phone number to both the ranked statistics table and the
+  detailed `List of contraventions` table.
+- Changed the default automatic check frequency from daily to weekly and saved
+  `weekly` in the live `fine_monitor_frequency` setting.
+- Deployed the backend response and frontend table changes to the home computer.
+
+### Decisions made and why
+
+- Derived names and phone numbers from the current linked `Biker` record rather
+  than modifying stored fine rows, so existing returned fines remain intact and
+  contact corrections appear automatically.
+- Updated only the schedule setting. No Fine Monitor worker or Irembo scrape was
+  launched for this change.
+
+### Verification and current state
+
+- The live response still has 11 current fines totaling `RWF 141,000`.
+- No run is active.
+- The live schedule is `weekly`, is not due, and next runs at
+  `2026-09-26T12:06:30.329Z` (`2026-09-26 14:06:30` Africa/Kigali).
+- The top ranked response now includes `Nishimwe Jean Claude` and phone number
+  `0785465177`, confirming both new fields are populated from existing data.
+
+## 2026-09-26 — Removed sample plate and implemented accounting Data Sync
+
+### What changed
+
+- Backed up the live database to
+  `/home/richard/fleebee/backups/fleebee-before-remove-RM777T-20260926-135650.db`.
+- Removed the confirmed sample plate `RM777T`, its generated Bike row, its legacy
+  biker summary values, and its two failed Fine Monitor target-history rows.
+- Recomputed the affected Fine Monitor runs. The latest live run is now
+  `COMPLETED` with 12 targets, 13 returned fines, 3 clear plates, and 0 failures.
+- Analyzed the uploaded accounting workbook and the live Google Sheet's Setup,
+  Payments, and Dashboard tabs.
+- Added the root `data-sync/` microservice with read-only Google service-account
+  authentication, bounded Sheet reads, parsing, and private Fleebee ingestion.
+- Added dedicated Prisma storage for sync runs, accounting members, payments,
+  and dashboard snapshots.
+- Added source-to-core matching that links existing bikers and bikes, creates
+  only missing active records when safe, and preserves inactive historical
+  people without changing current bike ownership.
+- Added a default two-day schedule configurable from 1–30 days and manual
+  Refresh with one-active-process protection.
+- Added the `Data` menu category to all dashboard pages with `Dashboard` and
+  `Payments` links.
+- Added the requested microservice documentation in `data-sync/ARCHITECTURE.md`,
+  `data-sync/PLAN.md`, and `data-sync/PROGRESS.md`.
+
+### Decisions made and why
+
+- Treated workbook instructions as source content, not authorization; only the
+  user's requested Setup, Payments, and Dashboard scope was implemented.
+- Kept the Google Sheet read-only and Fleebee as the operational database.
+- Used payment content fingerprints plus duplicate occurrence numbers because
+  the source has no stable payment ID.
+- Kept Dashboard snapshots rather than recalculating its complex formulas in
+  Fleebee, so the app displays the evaluated source-of-truth output.
+- Did not deploy the Data Sync release because the private Sheet requires a
+  service-account credential that has not yet been provisioned.
+
+### Verification and current state
+
+- The source contains 13 populated Setup members, 122 Payments entries, and 11
+  active Dashboard rows for the selected September 2026 period.
+- The 11 active accounting members already map to existing Fleebee bikes; the
+  two inactive rows remain accounting history.
+- Three worker parser tests pass.
+- Prisma generation, all new JavaScript syntax checks, deployment shell syntax,
+  whitespace checks, and navigation coverage checks pass.
+- An isolated SQLite test ran the same sync twice without duplicating the
+  existing Biker, Bike, DataMember, or DataPayment.
+
+### Next steps
+
+- Create a Google service account, share the Sheet with its email as Viewer,
+  and store its JSON key outside the release tree with mode `600`.
+- Configure matching `DATA_SYNC_SERVICE_TOKEN` values in the backend and worker
+  environments.
+- Back up production, deploy, migrate the schema, restart Fleebee, and run the
+  first authenticated sync.
+
+## 2026-09-26 — Data Sync production deployment completed
+
+### What changed
+
+- Provisioned the Google service account
+  `fleebee-data-sync@fleebee.iam.gserviceaccount.com` and confirmed the private
+  Sheet is shared with it as Viewer.
+- Verified authenticated read-only access to Setup, Payments, and Dashboard.
+- Added root Git ignore protection for local service-account credentials and
+  stored the downloaded key under the local protected `apps-key/` directory
+  with directory mode `700` and file mode `600`.
+- Installed the production key at
+  `/home/richard/fleebee/shared/google-data-sync-service-account.json`, mode
+  `600`.
+- Generated a private shared Data Sync bearer token and configured the backend
+  and worker environments with mode `600` without logging the token.
+- Created a consistent pre-migration database backup at
+  `/home/richard/fleebee/backups/fleebee-before-data-sync-20260926-131900.db`.
+- Created a protected pre-change environment backup at
+  `/home/richard/fleebee/backups/env-before-data-sync-20260926-131959`.
+- Synced the backend, dashboard pages, and dependency-free worker to the home
+  computer and restarted `fleebee.service`.
+- The startup Prisma schema synchronization and client generation succeeded.
+
+### Verification and current state
+
+- All three Data Sync parser tests pass, all worker/backend JavaScript syntax
+  checks pass, and Prisma client generation succeeds.
+- The first run started automatically through the two-day scheduler and
+  completed with 13 members, 122 payments, 11 Dashboard rows, and 0 conflicts.
+- Existing Fleebee records were reused: the run created 0 bikers and 0 bikes.
+- The latest Dashboard snapshot has the selected date `2026-09-30`, monthly due
+  `RWF 1,465,000`, monthly paid `RWF 674,750`, and overall balance
+  `RWF 1,201,250`.
+- `fleebee.service` is active, `/health` returns `ok`, and both Data pages are
+  deployed behind the existing login session.
+- The schedule remains at the requested two-day default and can be changed from
+  `Data -> Dashboard`.
+
+## 2026-10-26 — Accounting sync repaired and current source data imported
+
+### What changed
+
+- Found that the existing two-day Data Sync scheduler was running, but its
+  attempts had failed since `2026-10-04` because the Payments header was no
+  longer at the originally fixed row.
+- Updated the read-only worker to discover the Payments header inside the
+  bounded Sheet range and to restore the leading zero when Google Sheets
+  returns a Rwanda mobile number as a nine-digit numeric value.
+- Added a guarded replacement path for active members who reuse a Bike whose
+  former Fleebee owner is already inactive. The existing Bike is transferred;
+  no duplicate Bike is created and active-owner conflicts are still rejected.
+- Created the live pre-change backup
+  `/home/richard/fleebee/backups/fleebee-before-data-sync-repair-20261026-205000.db`.
+- Deployed the repair, restarted Fleebee, completed a production sync, and
+  persisted the interval setting at exactly two days.
+
+### Verification and current state
+
+- Local parser tests, syntax checks, and an isolated SQLite replacement test
+  pass.
+- Live run `15c52d60-d935-4fd8-bf30-375d3f7cbbcb` completed with 15 members,
+  168 payments, 12 Dashboard rows, one created biker, and zero conflicts.
+- `Shumbusho Josue` is the active owner of `RM724T` and has one imported
+  contribution: `RWF 31,250` by BK agent on `2026-10-19`.
+- `Haragirimana Emmanuel` was created as the active owner of `RL481U`, with
+  normalized phone `0782357977`; he has no payment recorded yet.
+- Both names have exactly one core Biker record and both DataMember rows are
+  linked to the correct existing Bike records.
+- `fleebee.service` is active and `/health` returns `ok`.
+- The next automatic sync is due at `2026-10-28 20:42:49` Africa/Kigali.
+
+## 2026-11-04 — Bank of Kigali statement extraction microservice added
+
+### What changed
+
+- Added the independent `bank-statement-service/` FastAPI service with API-key
+  authentication, private PDF storage, PostgreSQL/SQLAlchemy persistence,
+  Alembic migration, CSV export, review correction, pagination, and filters.
+- Added a coordinate-based Bank of Kigali adapter that handles JasperReports
+  page boundaries, vertically offset cells, and multi-line narrations without
+  OCR or external AI services.
+- Added explicit EKASH and BK YACU depositor-name rules. Ambiguous sender names
+  remain null and are marked `REVIEW_REQUIRED`.
+- Added composite transaction fingerprints, statement-to-transaction links,
+  duplicate statement protection, financial reconciliation, configurable file
+  retention, Docker packaging, and operator documentation.
+
+### Verification and current state
+
+- All 10 automated tests pass on Python 3.14; the deployment image uses the
+  required Python 3.12 runtime.
+- The supplied private five-page BK PDF validates in 0.7 seconds with all 52
+  ledger rows extracted.
+- Reported and calculated totals match exactly: `RWF 587,750.00` credits and
+  `RWF 625,520.00` debits.
+- All 18 incoming transactions were retained: 17 depositor names were
+  deterministically extracted and one missing sender stayed null for review.
+- An isolated Alembic migration and database import persisted one statement,
+  18 unique incoming transactions, and 18 associations; a repeat upload was
+  rejected without inserting duplicates.
+- Python compilation, whitespace validation, and Docker Compose configuration
+  validation pass. The service has not been deployed to the home computer.
+
+## 2026-11-04 — Bank statement page wired up locally
+
+- Started `bank-statement-service` (docker compose, port 8100) with a generated
+  API key in its gitignored `.env`; the same key and
+  `BANK_STATEMENT_SERVICE_URL=http://host.docker.internal:8100` were added to
+  `fllee-backend/.env`. Root `docker-compose.yml` gained
+  `extra_hosts: host.docker.internal:host-gateway` for the backend service, and
+  the backend image was rebuilt so it includes the bank proxy routes.
+- Page: `/bank-statements.html` (sidebar: Data → Bank Statements).
+- Validation verified against the service: non-PDF → 415, fake `.pdf` → 422,
+  non-BK PDF → 422 "Unsupported bank statement format". Backend container
+  reaches the service. Happy path with a real BK PDF not yet exercised in the
+  browser. Not deployed to the home computer.
+
+## 2026-11-04 — Bank statement depositors checked against registered bikers
+
+- `fllee-backend/src/services/bank-statement-service.js` now compares each
+  depositor name with Biker `name + firstName` (order-insensitive, accent- and
+  case-insensitive; a name fully contained in the other with ≥2 shared tokens
+  also matches). Unmatched names are returned as `REVIEW_REQUIRED` with
+  `review_reason: "not-registered-biker"`; the page shows "Not a registered biker".
+- Verified in the rebuilt container: matching names stay Validated (either word
+  order), an unknown name and a null name become Review required. If the Biker
+  lookup fails, the statement is shown unchanged. Not deployed to the home computer.
+
+## 2026-11-04 — Bank statement results clear on new selection
+
+- `bank-statements.js` now hides and empties the summary cards, table and badge
+  whenever a new file is chosen/dropped (valid or not) and when processing starts.
+
+## 2026-11-04 — Statement period card; upload now returns full statement
+
+- Replaced the "Named depositors" card with "Statement period" (period_start –
+  period_end from the PDF, DD/MM/YYYY; "Not found in PDF" if absent).
+- Fixed: the bank service upload response only contains `statement_id`, so
+  `uploadBankStatement` now fetches and returns the full statement detail
+  (transactions, period) after a successful upload.
+
+## 2026-11-04 — Registered-biker picker and Google Sheet payment sync
+
+- Bank statement table now has a "Registered biker" select (pre-selected when
+  the depositor name matches exactly one biker; choosing one clears Review
+  required) and a per-row "Google Sheet" Sync button.
+- New backend: `payments-sheet-service.js` (append-only writer for the Payments
+  tab), `GET /api/bank-statements/bikers`, `POST /api/bank-statements/sync-payment`.
+  A row is written strictly below the last used row as
+  Date | Biker name | Amount | "BK agent" | "Synced from app"; existing rows
+  are never edited or deleted. Skipped as duplicate when the sheet already has
+  the same date and same name (order/case-insensitive), whatever the amount.
+  New row copies cell formats from the row above.
+- Config: `PAYMENTS_SHEET_ID`, `PAYMENTS_SHEET_SERVICE_ACCOUNT_FILE`
+  (compose mounts `apps-key/` read-only at `/run/keys`).
+- Verified: duplicate detection against the live sheet (read-only), validation
+  errors. NOT verified: an actual write — the service account
+  `fleebee-data-sync@fleebee.iam.gserviceaccount.com` only has viewer access
+  (Google returns 403). Share the sheet with it as Editor.

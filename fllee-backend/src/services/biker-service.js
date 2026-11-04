@@ -5,6 +5,7 @@ const { DEFAULT_BIKERS } = require("../data/defaults");
 const { prisma } = require("../lib/prisma");
 const {
   buildFirstName,
+  hasValidSmsPhoneNumber,
   normalizeBoolean,
   normalizeOptionalText,
   normalizeRequiredText
@@ -55,6 +56,7 @@ function serializeBiker(item) {
     name: item.name,
     firstName: item.firstName || buildFirstName(item.name),
     phoneNumber: item.phoneNumber,
+    hasValidPhoneNumber: hasValidSmsPhoneNumber(item.phoneNumber),
     bikePlate: item.bikePlate || latestBike?.plateNumber || "",
     bikeModel: item.bikeModel || latestBike?.bikeModel || "",
     status: item.status,
@@ -118,6 +120,10 @@ async function buildBikerFields(payload, existing = {}) {
   const phoneNumber = normalizeRequiredText(payload.phoneNumber ?? existing.phoneNumber ?? "");
   if (!name || !phoneNumber) {
     return { error: "Name and phone number are required." };
+  }
+
+  if (!hasValidSmsPhoneNumber(phoneNumber)) {
+    return { error: "Phone number must contain 10 to 15 digits for SMS sending." };
   }
 
   const batchId = normalizeOptionalText(payload.batchId ?? existing.batchId ?? "");

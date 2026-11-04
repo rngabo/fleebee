@@ -77,6 +77,15 @@ const DEFAULT_WORKFLOW_CATEGORIES = [
   "emergency"
 ];
 const DEFAULT_WORKFLOW_URGENCIES = ["normal", "important", "urgent"];
+const BATCH_SEND_GROUP_KIND = "batch";
+const BASE_SCHEDULE_REPEAT_OPTIONS = [
+  { value: "ONCE", label: "Occasionally" },
+  { value: "MONTHLY", label: "Monthly" },
+  { value: "EVERY_2_MONTHS", label: "After 2 months" },
+  { value: "EVERY_3_MONTHS", label: "After 3 months" },
+  { value: "EVERY_4_MONTHS", label: "After 4 months" },
+  { value: "EVERY_5_MONTHS", label: "After 5 months" }
+];
 
 const state = {
   bikers: [],
@@ -111,6 +120,8 @@ const state = {
   recentPage: 0,
   recentPageSize: 5,
   revealTimers: new Map(),
+  expandedRecentBatchIds: new Set(),
+  retryingMessageIds: new Set(),
   composeMode: "new",
   composeTargetId: "",
   composeTargetMode: "current",
@@ -161,8 +172,16 @@ const phoneRouteValue = $("phoneRouteValue");
 const bundleRefreshButton = $("bundleRefreshButton");
 const bundleStatusValue = $("bundleStatusValue");
 const bundleCheckedValue = $("bundleCheckedValue");
+const bundlePlanRow = $("bundlePlanRow");
+const bundlePlanValue = $("bundlePlanValue");
+const bundleVoiceRow = $("bundleVoiceRow");
+const bundleVoiceValue = $("bundleVoiceValue");
 const bundleSmsValue = $("bundleSmsValue");
 const bundleDataValue = $("bundleDataValue");
+const bundleBuyAgainRow = $("bundleBuyAgainRow");
+const bundleBuyAgainValue = $("bundleBuyAgainValue");
+const bundleSmsUsageRow = $("bundleSmsUsageRow");
+const bundleSmsUsageValue = $("bundleSmsUsageValue");
 const bundleDetailsActionRow = $("bundleDetailsActionRow");
 const bundleDetailsToggle = $("bundleDetailsToggle");
 const bundleDetailsRow = $("bundleDetailsRow");
@@ -172,6 +191,7 @@ const recentPageSizeSelect = $("recentPageSizeSelect");
 const recentPrevButton = $("recentPrevButton");
 const recentNextButton = $("recentNextButton");
 const recentPageLabel = $("recentPageLabel");
+const overviewRecurringScheduleBody = $("overviewRecurringScheduleBody");
 
 const smsTableBody = $("smsTableBody");
 const scheduleTableBody = $("scheduleTableBody");
@@ -323,6 +343,8 @@ const composeMessage = $("composeMessage");
 const composeWhenField = $("composeWhenField");
 const composeWhenRow = $("composeWhenRow");
 const composeScheduleRow = $("composeScheduleRow");
+const composeScheduleQuickDay = $("composeScheduleQuickDay");
+const composeScheduleQuickHint = $("composeScheduleQuickHint");
 const composeSendAt = $("composeSendAt");
 const composeRepeat = $("composeRepeat");
 const composeNotice = $("composeNotice");
@@ -403,6 +425,41 @@ function formatDateInputValue(value) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+function nextRoundedHourDate(from = new Date()) {
+  const nextHour = new Date(from.getTime() + 60 * 60 * 1000);
+  nextHour.setMinutes(0, 0, 0);
+  return nextHour;
+}
+
+function buildScheduleQuickDayOptions(count = 4, from = new Date()) {
+  const start = new Date(from);
+  start.setHours(0, 0, 0, 0);
+
+  return Array.from({ length: count }, (_, index) => {
+    const offset = index + 1;
+    const optionDate = new Date(start);
+    optionDate.setDate(start.getDate() + offset);
+    const weekdayLabel = optionDate.toLocaleDateString([], { weekday: "long" });
+    const dateLabel = optionDate.toLocaleDateString([], { month: "short", day: "numeric" });
+
+    return {
+      value: formatDateInputValue(optionDate),
+      label: offset === 1
+        ? `Tomorrow — ${weekdayLabel}, ${dateLabel}`
+        : `${weekdayLabel}, ${dateLabel}`
+    };
+  });
+}
+
+function createClientId(prefix = "id") {
+  const randomId = window.crypto?.randomUUID?.();
+  if (randomId) {
+    return `${prefix}-${randomId}`;
+  }
+
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function formatCountdownDuration(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
   const days = Math.floor(totalSeconds / 86400);
@@ -416,6 +473,10 @@ function formatCountdownDuration(ms) {
   if (minutes || parts.length) parts.push(`${minutes}m`);
   parts.push(`${seconds}s`);
   return parts.slice(0, 3).join(" ");
+}
+
+function currentComposeScheduleDateValue() {
+  return formatDateInputValue(composeSendAt?.value || "");
 }
 
 function formatIntervalShort(ms) {
@@ -472,10 +533,64 @@ function pendingCountdownLabel(availableAt) {
 
 function recurrenceLabel(value) {
   const normalized = String(value || "").toUpperCase();
-  if (normalized === "DAILY") return "Daily";
-  if (normalized === "WEEKLY") return "Weekly";
+  if (normalized === "DAILY") return "Daily (legacy)";
+  if (normalized === "WEEKLY") return "Weekly (legacy)";
   if (normalized === "MONTHLY") return "Monthly";
-  return "One time";
+  if (normalized === "EVERY_2_MONTHS") return "After 2 months";
+  if (normalized === "EVERY_3_MONTHS") return "After 3 months";
+  if (normalized === "EVERY_4_MONTHS") return "After 4 months";
+  if (normalized === "EVERY_5_MONTHS") return "After 5 months";
+  return "Occasionally";
+}
+
+function legacyScheduleRepeatOption(value) {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (normalized === "DAILY") {
+    return { value: normalized, label: "Daily (legacy)" };
+  }
+  if (normalized === "WEEKLY") {
+    return { value: normalized, label: "Weekly (legacy)" };
+  }
+  return null;
+}
+
+function renderComposeRepeatOptions(selectedValue = "ONCE") {
+  if (!composeRepeat) {
+    return;
+  }
+
+  const normalized = String(selectedValue || "ONCE").trim().toUpperCase();
+  const options = [...BASE_SCHEDULE_REPEAT_OPTIONS];
+  if (!options.some((option) => option.value === normalized)) {
+    const legacyOption = legacyScheduleRepeatOption(normalized);
+    if (legacyOption) {
+      options.push(legacyOption);
+    }
+  }
+
+  composeRepeat.innerHTML = options.map((option) => `
+    <option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>
+  `).join("");
+  composeRepeat.value = options.some((option) => option.value === normalized) ? normalized : "ONCE";
+}
+
+function visibleSchedules() {
+  return state.schedules.filter((schedule) => String(schedule.status || "").trim().toLowerCase() !== "completed");
+}
+
+function openNewScheduleCompose() {
+  openCompose("new");
+  state.composeWhen = "later";
+  renderComposeRepeatOptions(composeRepeat?.value || "ONCE");
+  if (composeTitle) {
+    composeTitle.textContent = "New Schedule";
+  }
+  if (composeNote) {
+    composeNote.textContent = "Choose one biker or a batch, then set the timing and repeat pattern.";
+    composeNote.classList.remove("hidden");
+  }
+  renderComposeWhen();
+  composeSendAt?.focus();
 }
 
 function suggestionFor(category, bikerName) {
@@ -1061,19 +1176,126 @@ function getBundleRawText(bundle) {
     .find(Boolean) || "";
 }
 
+function normalizeBundleSnippet(value) {
+  return String(value || "")
+    .replace(/\s*\+\s*/g, " + ")
+    .replace(/\s*&\s*/g, " & ")
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatBundlePlanLabel(value) {
+  return normalizeBundleSnippet(value).replace(/_/g, " ");
+}
+
+function buildBundleBuyAgainText(expiryDate, shortCode) {
+  if (expiryDate && shortCode) {
+    return `By ${expiryDate} with ${shortCode}`;
+  }
+
+  if (expiryDate) {
+    return `By ${expiryDate}`;
+  }
+
+  if (shortCode) {
+    return `With ${shortCode}`;
+  }
+
+  return "";
+}
+
 function extractBundleHighlights(bundle) {
   const rawText = getBundleRawText(bundle);
-  const flatText = rawText.replace(/\s+/g, " ").trim();
-  const smsMatch = flatText.match(/(\d+)\s*SMS\.\s*EXP\s*(\d{4}-\d{2}-\d{2})/i);
-  const dataMatch = flatText.match(/Data\s*:?\s*([\d.]+)\s*MB\s*EXP\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
+  const flatText = normalizeBundleSnippet(rawText);
+  const sharedExpiryMatch = flatText.match(/\bEXP\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
+  const sharedExpiry = sharedExpiryMatch ? sharedExpiryMatch[1] : "";
+  const legacySmsMatch = flatText.match(/(\d+)\s*SMS\.\s*EXP\s*(\d{4}-\d{2}-\d{2})/i);
+  const genericSmsMatch = legacySmsMatch || flatText.match(/(?:^|[+&\s,])(\d+)\s*SMS\b/i);
+  const legacyDataMatch = flatText.match(/Data\s*:?\s*([\d.]+)\s*MB\s*EXP\s*:?\s*(\d{4}-\d{2}-\d{2})/i);
+  const dailyDataMatch = flatText.match(/(\d+(?:\.\d+)?)\s*MB\s*\/\s*day\b/i);
+  const genericDataMatch = legacyDataMatch
+    ? null
+    : dailyDataMatch
+      ? null
+      : flatText.match(/Data\s*:?\s*([\d.]+)\s*MB\b/i);
+  const voiceMatch = flatText.match(/(?:^|[\s.,])(?:[A-Za-z0-9]+_)?Bundle\s*:\s*(.+?)\s*&\s*\d+\s*SMS\b/i);
+  const planMatch = flatText.match(/(?:^|[\s.,])([A-Za-z0-9]+_Bundle)\s*:/i);
+  const packMatch = flatText.match(/,\s*([^,]*Packs)\s*,/i);
+  const buyAgainMatch = flatText.match(/\bKanda\s+(\*[0-9*#]+#)/i);
+  const hasPurchasedBundleFormat = Boolean(planMatch || voiceMatch || buyAgainMatch || dailyDataMatch);
+
+  const smsCount = genericSmsMatch ? Number(genericSmsMatch[1]) : null;
+  const smsExpiry = legacySmsMatch ? legacySmsMatch[2] : sharedExpiry;
+  const dataAmount = legacyDataMatch
+    ? legacyDataMatch[1]
+    : dailyDataMatch
+      ? dailyDataMatch[1]
+      : genericDataMatch
+        ? genericDataMatch[1]
+        : "";
+  const dataIsDaily = Boolean(dailyDataMatch);
+  const dataExpiry = legacyDataMatch ? legacyDataMatch[2] : dataAmount ? sharedExpiry : "";
+  const voice = voiceMatch
+    ? `${normalizeBundleSnippet(voiceMatch[1])}${sharedExpiry ? `. EXP ${sharedExpiry}` : ""}`
+    : "";
+  const plan = [planMatch ? formatBundlePlanLabel(planMatch[1]) : "", packMatch ? normalizeBundleSnippet(packMatch[1]) : ""]
+    .filter(Boolean)
+    .join(" / ");
+
+  let data = "";
+  if (legacyDataMatch) {
+    data = `Data:${legacyDataMatch[1]}MB EXP:${legacyDataMatch[2]}`;
+  } else if (dataAmount) {
+    data = `Data:${dataAmount}MB${dataIsDaily ? "/day" : ""}${dataExpiry ? ` EXP ${dataExpiry}` : ""}`;
+  }
 
   return {
     rawText,
-    sms: smsMatch ? `${smsMatch[1]} SMS. EXP ${smsMatch[2]}` : "",
-    smsExpiry: smsMatch ? smsMatch[2] : "",
-    data: dataMatch ? `Data:${dataMatch[1]}MB EXP:${dataMatch[2]}` : "",
-    dataExpiry: dataMatch ? dataMatch[2] : ""
+    plan,
+    voice,
+    sms: legacySmsMatch
+      ? `${legacySmsMatch[1]} SMS. EXP ${legacySmsMatch[2]}`
+      : genericSmsMatch
+        ? `${genericSmsMatch[1]} SMS loaded${smsExpiry ? `. EXP ${smsExpiry}` : ""}`
+        : "",
+    smsExpiry,
+    smsLimit: hasPurchasedBundleFormat && Number.isFinite(smsCount) ? smsCount : null,
+    data,
+    dataExpiry,
+    buyAgain: hasPurchasedBundleFormat
+      ? buildBundleBuyAgainText(sharedExpiry, buyAgainMatch ? buyAgainMatch[1] : "")
+      : ""
   };
+}
+
+function isBundleUsageCountedMessage(message) {
+  const normalized = String(message?.status || "").trim().toLowerCase();
+  return normalized === "submitted" || normalized === "sent";
+}
+
+function buildBundleSmsUsageText(bundle, highlights) {
+  const checkedAt = parseDateValue(bundle?.checkedAt);
+  const smsLimit = Number(highlights?.smsLimit);
+  if (!checkedAt || !Number.isFinite(smsLimit) || smsLimit <= 0) {
+    return "";
+  }
+
+  const sentCount = state.messages.filter((message) => {
+    if (!isBundleUsageCountedMessage(message)) {
+      return false;
+    }
+
+    const sentAt = parseDateValue(message.resultAt || message.createdAt);
+    return Boolean(sentAt && sentAt.getTime() >= checkedAt.getTime());
+  }).length;
+  const sinceLabel = formatDate(checkedAt);
+
+  if (sentCount > smsLimit) {
+    return `${sentCount} of ${smsLimit} sent since the ${sinceLabel} check. Over by ${sentCount - smsLimit}.`;
+  }
+
+  return `${sentCount} of ${smsLimit} sent since the ${sinceLabel} check. About ${smsLimit - sentCount} remaining.`;
 }
 
 function buildExpiryAlertNote(label, daysLeft, expiryDate) {
@@ -1137,6 +1359,16 @@ function bundleHighlightFallback(bundle) {
   return "Not found";
 }
 
+function renderOptionalBundleRow(row, valueNode, text) {
+  if (!row || !valueNode) {
+    return;
+  }
+
+  const value = String(text || "").trim();
+  row.classList.toggle("hidden", !value);
+  valueNode.textContent = value || "-";
+}
+
 function renderBundleCard() {
   const bundle = state.phone?.bundle;
   if (!bundle) {
@@ -1144,6 +1376,7 @@ function renderBundleCard() {
   }
 
   const highlights = extractBundleHighlights(bundle);
+  const smsUsage = buildBundleSmsUsageText(bundle, highlights);
   state.bundleDetailsOpen = state.bundleDetailsOpen && Boolean(highlights.rawText);
 
   if (bundleStatusValue) {
@@ -1153,12 +1386,16 @@ function renderBundleCard() {
   if (bundleCheckedValue) {
     bundleCheckedValue.textContent = formatDate(bundle.checkedAt);
   }
+  renderOptionalBundleRow(bundlePlanRow, bundlePlanValue, highlights.plan);
+  renderOptionalBundleRow(bundleVoiceRow, bundleVoiceValue, highlights.voice);
   if (bundleSmsValue) {
     bundleSmsValue.textContent = highlights.sms || bundleHighlightFallback(bundle);
   }
   if (bundleDataValue) {
     bundleDataValue.textContent = highlights.data || bundleHighlightFallback(bundle);
   }
+  renderOptionalBundleRow(bundleBuyAgainRow, bundleBuyAgainValue, highlights.buyAgain);
+  renderOptionalBundleRow(bundleSmsUsageRow, bundleSmsUsageValue, smsUsage);
   if (bundleDetailsToggle) {
     bundleDetailsToggle.textContent = state.bundleDetailsOpen ? "Hide details" : "View full message";
   }
@@ -1238,6 +1475,191 @@ function messageStatusDetail(message) {
   return "";
 }
 
+function normalizeSendGroupKind(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isBatchSendGroupMessage(message) {
+  return normalizeSendGroupKind(message?.sendGroupKind) === BATCH_SEND_GROUP_KIND
+    && Boolean(String(message?.sendGroupId || "").trim());
+}
+
+function isFailedMessage(message) {
+  return String(message?.status || "").trim().toLowerCase() === "failed";
+}
+
+function batchSendRecipientKey(message) {
+  const bikerId = String(message?.bikerId || "").trim();
+  if (bikerId) {
+    return `biker:${bikerId}`;
+  }
+
+  const targetNumber = String(message?.targetNumber || "").trim();
+  if (targetNumber) {
+    return `target:${targetNumber}`;
+  }
+
+  return `message:${String(message?.id || "").trim()}`;
+}
+
+function latestBatchSendMessages(messages) {
+  const latestByRecipient = new Map();
+  const orderedMessages = [...messages].sort(
+    (left, right) => (parseDateValue(right.createdAt)?.getTime() || 0) - (parseDateValue(left.createdAt)?.getTime() || 0)
+  );
+
+  for (const message of orderedMessages) {
+    const key = batchSendRecipientKey(message);
+    if (!latestByRecipient.has(key)) {
+      latestByRecipient.set(key, message);
+    }
+  }
+
+  return [...latestByRecipient.values()].sort(
+    (left, right) => (parseDateValue(right.createdAt)?.getTime() || 0) - (parseDateValue(left.createdAt)?.getTime() || 0)
+  );
+}
+
+function batchSendStatusPriority(status) {
+  const ordered = ["failed", "pending", "queued", "dispatched", "submitted", "sent"];
+  const index = ordered.indexOf(String(status || "").trim().toLowerCase());
+  return index >= 0 ? index : ordered.length;
+}
+
+function summarizeMessageList(items, formatter, maxItems = 3) {
+  const labels = items.slice(0, maxItems).map(formatter).filter(Boolean);
+  const remaining = items.length - labels.length;
+  if (remaining > 0) {
+    return `${labels.join(", ")} and ${remaining} more`;
+  }
+
+  return labels.join(", ");
+}
+
+function batchSendDisplayStatus(messages) {
+  const statuses = [...new Set(messages.map((message) => String(message.status || "").trim().toLowerCase()))];
+  statuses.sort((left, right) => batchSendStatusPriority(left) - batchSendStatusPriority(right));
+  return statuses[0] || "pending";
+}
+
+function batchSendStatusCounts(messages) {
+  const ordered = ["pending", "queued", "dispatched", "submitted", "sent", "failed"];
+  return ordered
+    .map((status) => ({
+      status,
+      count: messages.filter((message) => String(message.status || "").trim().toLowerCase() === status).length
+    }))
+    .filter((item) => item.count > 0);
+}
+
+function batchSendStatusSummary(messages) {
+  const statusParts = batchSendStatusCounts(messages).map((item) => `${item.count} ${item.status}`);
+  return [`${messages.length} recipient${messages.length === 1 ? "" : "s"}`, ...statusParts].join(" • ");
+}
+
+function batchSendFailureSummary(messages) {
+  const failed = messages.filter((message) => isFailedMessage(message));
+  if (!failed.length) {
+    return "";
+  }
+
+  return `Failed: ${summarizeMessageList(failed, (message) => message.bikerName || message.targetNumber || "Unknown recipient")}.`;
+}
+
+function batchSendBodySummary(messages) {
+  const uniqueBodies = [...new Set(messages.map((message) => String(message.body || "").trim()).filter(Boolean))];
+  if (uniqueBodies.length === 1) {
+    return {
+      text: uniqueBodies[0],
+      personalized: false
+    };
+  }
+
+  return {
+    text: `Personalized batch SMS for ${messages.length} recipient${messages.length === 1 ? "" : "s"}.`,
+    personalized: true
+  };
+}
+
+function buildBatchSendDisplayRow(messages) {
+  if (!messages.length) {
+    return null;
+  }
+
+  const currentMessages = latestBatchSendMessages(messages);
+  const orderedMessages = [...currentMessages].sort(
+    (left, right) => (parseDateValue(right.createdAt)?.getTime() || 0) - (parseDateValue(left.createdAt)?.getTime() || 0)
+  );
+  const latestMessage = orderedMessages[0];
+  if (!latestMessage) {
+    return null;
+  }
+  const availableAt = orderedMessages
+    .map((message) => parseDateValue(message.availableAt))
+    .filter(Boolean)
+    .sort((left, right) => right.getTime() - left.getTime())[0];
+  const resultAt = orderedMessages
+    .map((message) => parseDateValue(message.resultAt))
+    .filter(Boolean)
+    .sort((left, right) => right.getTime() - left.getTime())[0];
+  const categories = [...new Set(orderedMessages.map((message) => message.category).filter(Boolean))];
+  const bodySummary = batchSendBodySummary(orderedMessages);
+  const failedMessages = orderedMessages.filter((message) => isFailedMessage(message));
+
+  return {
+    kind: "batch-group",
+    id: `batch-group:${latestMessage.sendGroupId}`,
+    sendGroupId: latestMessage.sendGroupId,
+    sendGroupLabel: latestMessage.sendGroupLabel || "Batch send",
+    category: categories.length === 1 ? categories[0] : "MIXED",
+    source: latestMessage.source,
+    status: batchSendDisplayStatus(orderedMessages),
+    availableAt: availableAt ? availableAt.toISOString() : null,
+    createdAt: latestMessage.createdAt,
+    resultAt: resultAt ? resultAt.toISOString() : null,
+    body: bodySummary.text,
+    personalized: bodySummary.personalized,
+    statusSummary: batchSendStatusSummary(orderedMessages),
+    failureSummary: batchSendFailureSummary(orderedMessages),
+    failedMessages,
+    messages: orderedMessages
+  };
+}
+
+function buildMessageDisplayRows(messages = state.messages) {
+  const rows = [];
+  const groupedMessages = new Map();
+
+  for (const message of messages) {
+    if (isBatchSendGroupMessage(message)) {
+      const groupId = String(message.sendGroupId || "").trim();
+      if (!groupedMessages.has(groupId)) {
+        groupedMessages.set(groupId, []);
+        rows.push({
+          kind: "batch-placeholder",
+          sendGroupId: groupId
+        });
+      }
+      groupedMessages.get(groupId).push(message);
+      continue;
+    }
+
+    rows.push({
+      kind: "single",
+      message
+    });
+  }
+
+  return rows.map((row) => {
+    if (row.kind === "single") {
+      return row;
+    }
+
+    const group = buildBatchSendDisplayRow(groupedMessages.get(row.sendGroupId) || []);
+    return group ? group : null;
+  }).filter(Boolean);
+}
+
 function isRevealed(messageId) {
   return state.revealTimers.has(messageId);
 }
@@ -1254,6 +1676,21 @@ function toggleReveal(messageId) {
       renderRecentTable();
     }, REVEAL_HIDE_MS);
     state.revealTimers.set(messageId, timer);
+  }
+
+  renderRecentTable();
+}
+
+function toggleRecentBatchDetails(sendGroupId) {
+  const groupId = String(sendGroupId || "").trim();
+  if (!groupId) {
+    return;
+  }
+
+  if (state.expandedRecentBatchIds.has(groupId)) {
+    state.expandedRecentBatchIds.delete(groupId);
+  } else {
+    state.expandedRecentBatchIds.add(groupId);
   }
 
   renderRecentTable();
@@ -1276,13 +1713,14 @@ function renderRecentTable() {
     return;
   }
 
-  const total = state.messages.length;
+  const displayRows = buildMessageDisplayRows();
+  const total = displayRows.length;
   const pageSize = state.recentPageSize;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   state.recentPage = Math.min(state.recentPage, pageCount - 1);
 
   const start = state.recentPage * pageSize;
-  const pageItems = state.messages.slice(start, start + pageSize);
+  const pageItems = displayRows.slice(start, start + pageSize);
 
   if (recentPageLabel) {
     recentPageLabel.textContent = total === 0 ? "No messages" : `Page ${state.recentPage + 1} of ${pageCount}`;
@@ -1304,31 +1742,121 @@ function renderRecentTable() {
   }
 
   recentTableBody.innerHTML = pageItems.map((message) => {
-    const revealed = isRevealed(message.id);
+    if (message.kind === "batch-group") {
+      const failedMessages = message.failedMessages || [];
+      const expanded = failedMessages.length > 0 && state.expandedRecentBatchIds.has(message.sendGroupId);
+      const actionCell = failedMessages.length > 0
+        ? `
+          <div class="table-actions">
+            <button
+              type="button"
+              class="table-action"
+              data-action="toggle-batch-failures"
+              data-send-group-id="${escapeHtml(message.sendGroupId)}"
+            >${expanded ? "Hide failed" : `Review failed (${failedMessages.length})`}</button>
+          </div>
+        `
+        : `<span class="table-cell-muted">Batch row</span>`;
+      const detailRow = expanded
+        ? `
+          <tr class="recent-batch-detail-row">
+            <td colspan="6">
+              <div class="recent-batch-detail-card">
+                <div class="recent-batch-detail-head">
+                  <div class="table-cell-strong">Failed recipients in ${escapeHtml(message.sendGroupLabel)}</div>
+                  <div class="table-cell-muted">Retry only the failed recipient. Successful recipients stay untouched.</div>
+                </div>
+                <div class="recent-batch-failure-list">
+                  ${failedMessages.map((item) => {
+                    const retrying = state.retryingMessageIds.has(item.id);
+                    return `
+                      <div class="recent-batch-failure-item">
+                        <div>
+                          <div class="table-cell-strong">${escapeHtml(item.bikerName || "Unknown recipient")}</div>
+                          <div class="table-cell-muted">${escapeHtml(item.targetNumber || "")}</div>
+                          <div class="table-cell-muted">${escapeHtml(messageStatusDetail(item))}</div>
+                        </div>
+                        <div class="table-actions">
+                          <button
+                            type="button"
+                            class="table-action"
+                            data-action="retry-message"
+                            data-message-id="${escapeHtml(item.id)}"
+                            ${retrying ? "disabled" : ""}
+                          >${retrying ? "Retrying..." : "Retry"}</button>
+                        </div>
+                      </div>
+                    `;
+                  }).join("")}
+                </div>
+              </div>
+            </td>
+          </tr>
+        `
+        : "";
+
+      return `
+        <tr>
+          <td>
+            <div class="table-cell-strong">Batch: ${escapeHtml(message.sendGroupLabel)}</div>
+            <div class="table-cell-muted">${escapeHtml(message.statusSummary)}</div>
+          </td>
+          <td>${escapeHtml(message.category)}</td>
+          <td>
+            <span class="status-chip ${escapeHtml(message.status)}">${escapeHtml(message.status.toUpperCase())}</span>
+            <div class="table-cell-muted">${escapeHtml(message.statusSummary)}</div>
+            ${message.failureSummary ? `<div class="table-cell-muted">${escapeHtml(message.failureSummary)}</div>` : ""}
+          </td>
+          <td class="message-cell">
+            <span class="masked" aria-label="Hidden batch message">••••••••••</span>
+            <div class="table-cell-muted">${escapeHtml(message.body)}</div>
+          </td>
+          <td>${escapeHtml(formatTimeShort(message.createdAt))}</td>
+          <td>${actionCell}</td>
+        </tr>
+        ${detailRow}
+      `;
+    }
+
+    const item = message.message;
+    const revealed = isRevealed(item.id);
+    const retrying = state.retryingMessageIds.has(item.id);
+    const failed = isFailedMessage(item);
     const messageCell = revealed
-      ? `<span class="revealed-text">${escapeHtml(message.body)}</span>`
+      ? `<span class="revealed-text">${escapeHtml(item.body)}</span>`
       : `<span class="masked" aria-label="Hidden message">••••••••••</span>`;
 
     return `
       <tr>
         <td>
-          <div class="table-cell-strong">${escapeHtml(message.bikerName)}</div>
-          <div class="table-cell-muted">${escapeHtml(message.targetNumber || "")}</div>
+          <div class="table-cell-strong">${escapeHtml(item.bikerName)}</div>
+          <div class="table-cell-muted">${escapeHtml(item.targetNumber || "")}</div>
         </td>
-        <td>${escapeHtml(message.category)}</td>
+        <td>${escapeHtml(item.category)}</td>
         <td>
-          <span class="status-chip ${escapeHtml(message.status)}">${escapeHtml(message.status.toUpperCase())}</span>
-          <div class="table-cell-muted">${escapeHtml(messageStatusDetail(message))}</div>
+          <span class="status-chip ${escapeHtml(item.status)}">${escapeHtml(item.status.toUpperCase())}</span>
+          <div class="table-cell-muted">${escapeHtml(messageStatusDetail(item))}</div>
         </td>
         <td class="message-cell">${messageCell}</td>
-        <td>${escapeHtml(formatTimeShort(message.createdAt))}</td>
+        <td>${escapeHtml(formatTimeShort(item.createdAt))}</td>
         <td>
-          <button type="button" class="icon-button ${revealed ? "active" : ""}" data-action="toggle-reveal"
-            data-message-id="${escapeHtml(message.id)}"
-            aria-label="${revealed ? "Hide message" : "Show message for 5 seconds"}"
-            title="${revealed ? "Hide message" : "Show message for 5 seconds"}">
-            ${revealed ? EYE_OFF_ICON : EYE_ICON}
-          </button>
+          <div class="table-actions recent-row-actions">
+            ${failed ? `
+              <button
+                type="button"
+                class="table-action"
+                data-action="retry-message"
+                data-message-id="${escapeHtml(item.id)}"
+                ${retrying ? "disabled" : ""}
+              >${retrying ? "Retrying..." : "Retry"}</button>
+            ` : ""}
+            <button type="button" class="icon-button ${revealed ? "active" : ""}" data-action="toggle-reveal"
+              data-message-id="${escapeHtml(item.id)}"
+              aria-label="${revealed ? "Hide message" : "Show message for 5 seconds"}"
+              title="${revealed ? "Hide message" : "Show message for 5 seconds"}">
+              ${revealed ? EYE_OFF_ICON : EYE_ICON}
+            </button>
+          </div>
         </td>
       </tr>
     `;
@@ -1342,7 +1870,9 @@ function renderSmsTable() {
     return;
   }
 
-  if (state.messages.length === 0) {
+  const displayRows = buildMessageDisplayRows();
+
+  if (displayRows.length === 0) {
     smsTableBody.innerHTML = `
       <tr>
         <td colspan="6" class="empty-table">No SMS have been queued yet.</td>
@@ -1351,31 +1881,64 @@ function renderSmsTable() {
     return;
   }
 
-  smsTableBody.innerHTML = state.messages.map((message) => {
-    const editable = message.status === "pending";
+  smsTableBody.innerHTML = displayRows.map((message) => {
+    if (message.kind === "batch-group") {
+      const allPending = message.messages.every((item) => item.status === "pending");
+      const actions = allPending
+        ? `
+          <button type="button" class="table-action alert" data-action="delete-message-group" data-send-group-id="${escapeHtml(message.sendGroupId)}">Delete Batch</button>
+        `
+        : `<span class="table-cell-muted">Locked after release</span>`;
+
+      return `
+        <tr>
+          <td>
+            <div class="table-cell-strong">Batch: ${escapeHtml(message.sendGroupLabel)}</div>
+            <div class="table-cell-muted">${escapeHtml(`${message.messages.length} recipient${message.messages.length === 1 ? "" : "s"}`)}</div>
+          </td>
+          <td>
+            <div>${escapeHtml(message.category)}</div>
+            <div class="table-cell-muted">${escapeHtml(message.source === "scheduled" ? "from batch planner" : "batch send")}</div>
+          </td>
+          <td class="message-cell">
+            <span class="${message.personalized ? "table-cell-muted" : "revealed-text"}">${escapeHtml(message.body)}</span>
+          </td>
+          <td>
+            <span class="status-chip ${escapeHtml(message.status)}">${escapeHtml(message.status.toUpperCase())}</span>
+            <div class="table-cell-muted">${escapeHtml(message.statusSummary)}</div>
+            ${message.failureSummary ? `<div class="table-cell-muted">${escapeHtml(message.failureSummary)}</div>` : ""}
+          </td>
+          <td>${escapeHtml(formatDate(message.createdAt))}</td>
+          <td><div class="table-actions">${actions}</div></td>
+        </tr>
+      `;
+    }
+
+    const item = message.message;
+    const editable = item.status === "pending";
     const actions = editable
       ? `
-        <button type="button" class="table-action" data-action="edit-message" data-message-id="${escapeHtml(message.id)}">Edit</button>
-        <button type="button" class="table-action alert" data-action="delete-message" data-message-id="${escapeHtml(message.id)}">Delete</button>
+        <button type="button" class="table-action" data-action="edit-message" data-message-id="${escapeHtml(item.id)}">Edit</button>
+        <button type="button" class="table-action alert" data-action="delete-message" data-message-id="${escapeHtml(item.id)}">Delete</button>
       `
       : `<span class="table-cell-muted">Locked after release</span>`;
 
     return `
       <tr>
         <td>
-          <div class="table-cell-strong">${escapeHtml(message.bikerName)}</div>
-          <div class="table-cell-muted">${escapeHtml(message.targetNumber || "")}</div>
+          <div class="table-cell-strong">${escapeHtml(item.bikerName)}</div>
+          <div class="table-cell-muted">${escapeHtml(item.targetNumber || "")}</div>
         </td>
         <td>
-          <div>${escapeHtml(message.category)}</div>
-          <div class="table-cell-muted">${escapeHtml(message.source === "scheduled" ? "from planner" : "direct send")}</div>
+          <div>${escapeHtml(item.category)}</div>
+          <div class="table-cell-muted">${escapeHtml(item.source === "scheduled" ? "from planner" : "direct send")}</div>
         </td>
-        <td class="message-cell"><span class="revealed-text">${escapeHtml(message.body)}</span></td>
+        <td class="message-cell"><span class="revealed-text">${escapeHtml(item.body)}</span></td>
         <td>
-          <span class="status-chip ${escapeHtml(message.status)}">${escapeHtml(message.status.toUpperCase())}</span>
-          <div class="table-cell-muted">${escapeHtml(messageStatusDetail(message))}</div>
+          <span class="status-chip ${escapeHtml(item.status)}">${escapeHtml(item.status.toUpperCase())}</span>
+          <div class="table-cell-muted">${escapeHtml(messageStatusDetail(item))}</div>
         </td>
-        <td>${escapeHtml(formatDate(message.createdAt))}</td>
+        <td>${escapeHtml(formatDate(item.createdAt))}</td>
         <td><div class="table-actions">${actions}</div></td>
       </tr>
     `;
@@ -1401,31 +1964,101 @@ function scheduleDispatchSummary(schedule) {
   return `${formatTimeShort(schedule.lastRunAt)} • ${label}`;
 }
 
-function renderScheduleTable() {
-  if (!scheduleTableBody) {
+function scheduleNextSendLabel(schedule) {
+  return schedule.status === "completed"
+    ? "Completed"
+    : schedule.nextRunAt
+      ? formatDate(schedule.nextRunAt)
+      : "Paused";
+}
+
+function recurringSchedules() {
+  return [...visibleSchedules()]
+    .filter((schedule) => String(schedule.recurrence || "").trim().toUpperCase() !== "ONCE")
+    .sort((left, right) => {
+      const leftCompleted = String(left.status || "").trim().toLowerCase() === "completed";
+      const rightCompleted = String(right.status || "").trim().toLowerCase() === "completed";
+      if (leftCompleted !== rightCompleted) {
+        return leftCompleted ? 1 : -1;
+      }
+
+      const leftPaused = String(left.status || "").trim().toLowerCase() === "paused";
+      const rightPaused = String(right.status || "").trim().toLowerCase() === "paused";
+      if (leftPaused !== rightPaused) {
+        return leftPaused ? 1 : -1;
+      }
+
+      const leftNext = parseDateValue(left.nextRunAt || left.sendAt)?.getTime() || Number.MAX_SAFE_INTEGER;
+      const rightNext = parseDateValue(right.nextRunAt || right.sendAt)?.getTime() || Number.MAX_SAFE_INTEGER;
+      return leftNext - rightNext;
+    });
+}
+
+function buildScheduleActionButtons(schedule) {
+  const toggleLabel = schedule.status === "paused" ? "Resume" : "Pause";
+  const toggleButton = schedule.status === "completed"
+    ? ""
+    : `<button type="button" class="table-action" data-action="toggle-schedule" data-schedule-id="${escapeHtml(schedule.id)}">${toggleLabel}</button>`;
+
+  return `
+    <div class="table-actions">
+      <button type="button" class="table-action" data-action="edit-schedule" data-schedule-id="${escapeHtml(schedule.id)}">Edit</button>
+      ${toggleButton}
+      <button type="button" class="table-action alert" data-action="delete-schedule" data-schedule-id="${escapeHtml(schedule.id)}">Delete</button>
+    </div>
+  `;
+}
+
+function renderOverviewRecurringScheduleTable() {
+  if (!overviewRecurringScheduleBody) {
     return;
   }
 
-  if (state.schedules.length === 0) {
-    scheduleTableBody.innerHTML = `
+  const items = recurringSchedules();
+  if (items.length === 0) {
+    overviewRecurringScheduleBody.innerHTML = `
       <tr>
-        <td colspan="5" class="empty-table">No scheduled sends yet. Use New SMS and pick "Schedule".</td>
+        <td colspan="6" class="empty-table">No recurring schedules yet. Open Scheduled SMS, then use New Schedule and choose monthly or after 2 to 5 months.</td>
       </tr>
     `;
     return;
   }
 
-  scheduleTableBody.innerHTML = state.schedules.map((schedule) => {
-    const nextSend = schedule.status === "completed"
-      ? "Completed"
-      : schedule.nextRunAt
-        ? formatDate(schedule.nextRunAt)
-        : "Paused";
-    const toggleLabel = schedule.status === "paused" ? "Resume" : "Pause";
-    const toggleButton = schedule.status === "completed"
-      ? ""
-      : `<button type="button" class="table-action" data-action="toggle-schedule" data-schedule-id="${escapeHtml(schedule.id)}">${toggleLabel}</button>`;
+  overviewRecurringScheduleBody.innerHTML = items.map((schedule) => `
+    <tr>
+      <td>
+        <div class="table-cell-strong">${escapeHtml(schedule.bikerName)}</div>
+        <div class="table-cell-muted">${escapeHtml(schedule.category)}</div>
+      </td>
+      <td class="message-cell"><span class="revealed-text">${escapeHtml(schedule.body)}</span></td>
+      <td>
+        <div class="table-cell-strong">${escapeHtml(recurrenceLabel(schedule.recurrence))}</div>
+        <div class="table-cell-muted">${escapeHtml(schedule.status)}</div>
+      </td>
+      <td>${escapeHtml(scheduleNextSendLabel(schedule))}</td>
+      <td>${escapeHtml(scheduleDispatchSummary(schedule))}</td>
+      <td>${buildScheduleActionButtons(schedule)}</td>
+    </tr>
+  `).join("");
+}
 
+function renderScheduleTable() {
+  if (!scheduleTableBody) {
+    return;
+  }
+
+  const items = visibleSchedules();
+
+  if (items.length === 0) {
+    scheduleTableBody.innerHTML = `
+      <tr>
+        <td colspan="5" class="empty-table">No pending schedules right now. Once a scheduled SMS runs, it stays only in Message History.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  scheduleTableBody.innerHTML = items.map((schedule) => {
     return `
       <tr>
         <td>
@@ -1438,16 +2071,10 @@ function renderScheduleTable() {
           <div class="table-cell-muted">${escapeHtml(schedule.status)}</div>
         </td>
         <td>
-          <div class="table-cell-strong">${escapeHtml(nextSend)}</div>
+          <div class="table-cell-strong">${escapeHtml(scheduleNextSendLabel(schedule))}</div>
           <div class="table-cell-muted">Last: ${escapeHtml(scheduleDispatchSummary(schedule))}</div>
         </td>
-        <td>
-          <div class="table-actions">
-            <button type="button" class="table-action" data-action="edit-schedule" data-schedule-id="${escapeHtml(schedule.id)}">Edit</button>
-            ${toggleButton}
-            <button type="button" class="table-action alert" data-action="delete-schedule" data-schedule-id="${escapeHtml(schedule.id)}">Delete</button>
-          </div>
-        </td>
+        <td>${buildScheduleActionButtons(schedule)}</td>
       </tr>
     `;
   }).join("");
@@ -1562,6 +2189,49 @@ function isActiveBiker(biker) {
 
 function activeBikers() {
   return state.bikers.filter(isActiveBiker);
+}
+
+function normalizePhoneNumber(value) {
+  return String(value || "").replace(/\D+/g, "");
+}
+
+function hasValidSmsPhoneNumber(value) {
+  const digits = normalizePhoneNumber(value);
+  return digits.length >= 10 && digits.length <= 15;
+}
+
+function hasValidBikerPhoneNumber(biker) {
+  if (typeof biker?.hasValidPhoneNumber === "boolean") {
+    return biker.hasValidPhoneNumber;
+  }
+
+  return hasValidSmsPhoneNumber(biker?.phoneNumber || "");
+}
+
+function smsReadyBikers() {
+  return state.bikers.filter((biker) => isActiveBiker(biker) && hasValidBikerPhoneNumber(biker));
+}
+
+function describeBikerPhoneNumber(biker) {
+  return String(biker?.phoneNumber || "").trim() || "missing number";
+}
+
+function summarizeRecipients(recipients, formatter, maxItems = 3) {
+  const items = recipients.slice(0, maxItems).map(formatter).filter(Boolean);
+  const remaining = recipients.length - items.length;
+  if (remaining > 0) {
+    return `${items.join(", ")} and ${remaining} more`;
+  }
+
+  return items.join(", ");
+}
+
+function formatInvalidPhoneRecipientSummary(recipients, maxItems = 3) {
+  return summarizeRecipients(
+    recipients,
+    (biker) => `${biker.name} (${describeBikerPhoneNumber(biker)})`,
+    maxItems
+  );
 }
 
 function bikerStatusSummary(biker) {
@@ -2374,7 +3044,16 @@ function composeBatchRecipients(batchId = state.composeBatchId) {
     return [];
   }
 
-  return activeBikers().filter((biker) => biker.batchId === targetBatchId);
+  return smsReadyBikers().filter((biker) => biker.batchId === targetBatchId);
+}
+
+function composeBatchInvalidRecipients(batchId = state.composeBatchId) {
+  const targetBatchId = String(batchId || "").trim();
+  if (!targetBatchId) {
+    return [];
+  }
+
+  return activeBikers().filter((biker) => biker.batchId === targetBatchId && !hasValidBikerPhoneNumber(biker));
 }
 
 function composeSelectedRecipients() {
@@ -2387,7 +3066,19 @@ function composeSelectedRecipients() {
     return composeBatchRecipients();
   }
 
-  return activeBikers().filter((biker) => state.composeRecipients.has(biker.id));
+  return smsReadyBikers().filter((biker) => state.composeRecipients.has(biker.id));
+}
+
+function composeSelectedInvalidRecipients() {
+  if (state.composeMode !== "new") {
+    return [];
+  }
+
+  if (state.composeTargetMode === "batch") {
+    return composeBatchInvalidRecipients();
+  }
+
+  return [];
 }
 
 function composeDispatchRecipients() {
@@ -2495,7 +3186,13 @@ function renderComposeBatchOptions() {
   ensureComposeBatchSelection();
   const options = state.batches.map((batch) => ({
     value: batch.id,
-    label: `${batch.name} (${composeBatchRecipients(batch.id).length} active)`
+    label: (() => {
+      const readyCount = composeBatchRecipients(batch.id).length;
+      const invalidCount = composeBatchInvalidRecipients(batch.id).length;
+      return invalidCount > 0
+        ? `${batch.name} (${readyCount} ready, ${invalidCount} invalid)`
+        : `${batch.name} (${readyCount} ready)`;
+    })()
   }));
 
   renderSelectOptions(
@@ -2513,51 +3210,90 @@ function renderComposeBatchRecipients() {
 
   const batch = state.batches.find((item) => item.id === state.composeBatchId) || null;
   const recipients = composeBatchRecipients();
+  const invalidRecipients = composeBatchInvalidRecipients();
 
   if (!batch) {
     composeBatchRecipientList.innerHTML = `
       <div class="empty-table">Choose a batch to send the SMS to its registered active bikers.</div>
     `;
     if (composeBatchRecipientCount) {
-      composeBatchRecipientCount.textContent = "0 selected";
+      composeBatchRecipientCount.textContent = "0 ready";
     }
     if (composeBatchNotice) {
-      composeBatchNotice.textContent = "Only active registered bikers linked to the chosen batch will be included.";
+      composeBatchNotice.textContent = "Only active registered bikers with valid phone numbers will be included.";
     }
     return;
   }
 
   if (recipients.length === 0) {
-    composeBatchRecipientList.innerHTML = `
-      <div class="empty-table">No active registered bikers are linked to ${escapeHtml(batch.name)} yet.</div>
-    `;
+    const invalidMarkup = invalidRecipients.length > 0
+      ? `
+        <div class="recipient-warning-label">Fix these phone numbers first</div>
+        ${invalidRecipients.map((biker) => `
+          <div class="recipient-item recipient-preview recipient-item-warning">
+            <span class="recipient-name">${escapeHtml(biker.name)}</span>
+            <span class="recipient-meta">${escapeHtml(describeBikerPhoneNumber(biker))}</span>
+          </div>
+        `).join("")}
+      `
+      : "";
+    composeBatchRecipientList.innerHTML = invalidRecipients.length > 0
+      ? `
+        <div class="empty-table">No active bikers in ${escapeHtml(batch.name)} currently have a valid phone number.</div>
+        ${invalidMarkup}
+      `
+      : `
+        <div class="empty-table">No active registered bikers are linked to ${escapeHtml(batch.name)} yet.</div>
+      `;
     if (composeBatchRecipientCount) {
-      composeBatchRecipientCount.textContent = "0 selected";
+      composeBatchRecipientCount.textContent = invalidRecipients.length > 0
+        ? `0 ready • ${invalidRecipients.length} invalid`
+        : "0 ready";
     }
     if (composeBatchNotice) {
-      composeBatchNotice.textContent = "Add or activate recipients in this batch first.";
+      composeBatchNotice.textContent = invalidRecipients.length > 0
+        ? `Fix these recipients first: ${formatInvalidPhoneRecipientSummary(invalidRecipients)}.`
+        : "Add or activate recipients in this batch first.";
     }
     return;
   }
 
-  composeBatchRecipientList.innerHTML = recipients.map((biker) => `
+  const validMarkup = recipients.map((biker) => `
     <div class="recipient-item recipient-preview">
       <span class="recipient-name">${escapeHtml(biker.name)}</span>
       <span class="recipient-meta">${escapeHtml(biker.bikePlate || biker.phoneNumber)}</span>
     </div>
   `).join("");
+  const invalidMarkup = invalidRecipients.length > 0
+    ? `
+      <div class="recipient-warning-label">Skipped until phone number is fixed</div>
+      ${invalidRecipients.map((biker) => `
+        <div class="recipient-item recipient-preview recipient-item-warning">
+          <span class="recipient-name">${escapeHtml(biker.name)}</span>
+          <span class="recipient-meta">${escapeHtml(describeBikerPhoneNumber(biker))}</span>
+        </div>
+      `).join("")}
+    `
+    : "";
+
+  composeBatchRecipientList.innerHTML = `${validMarkup}${invalidMarkup}`;
 
   if (composeBatchRecipientCount) {
-    composeBatchRecipientCount.textContent = `${recipients.length} selected`;
+    composeBatchRecipientCount.textContent = invalidRecipients.length > 0
+      ? `${recipients.length} ready • ${invalidRecipients.length} invalid`
+      : `${recipients.length} ready`;
   }
   if (composeBatchNotice) {
+    const invalidNote = invalidRecipients.length > 0
+      ? ` ${invalidRecipients.length} recipient${invalidRecipients.length === 1 ? " is" : "s are"} skipped until the phone number${invalidRecipients.length === 1 ? " is" : "s are"} fixed.`
+      : "";
     if (isTestingGatewayMode()) {
       const previewRecipient = recipients[0] || null;
       composeBatchNotice.textContent = previewRecipient
-        ? `${recipients.length} active registered bikers are selected, but testing mode will queue only 1 SMS to ${state.smsSettings.gatewayTargetNumber || "the test number"} using ${previewRecipient.name}'s values.`
-        : `Testing mode will queue only 1 SMS to ${state.smsSettings.gatewayTargetNumber || "the test number"}.`;
+        ? `${recipients.length} active registered bikers are ready, but testing mode will queue only 1 SMS to ${state.smsSettings.gatewayTargetNumber || "the test number"} using ${previewRecipient.name}'s values.${invalidNote}`
+        : `Testing mode will queue only 1 SMS to ${state.smsSettings.gatewayTargetNumber || "the test number"}.${invalidNote}`;
     } else {
-      composeBatchNotice.textContent = `${recipients.length} active registered biker${recipients.length === 1 ? "" : "s"} from ${batch.name} will receive this message.`;
+      composeBatchNotice.textContent = `${recipients.length} active registered biker${recipients.length === 1 ? "" : "s"} from ${batch.name} will receive this message.${invalidNote}`;
     }
   }
 }
@@ -2593,7 +3329,7 @@ function renderComposeTemplatePreview() {
     return;
   }
 
-  const sampleRecipient = composeSelectedRecipients()[0] || activeBikers()[0] || null;
+  const sampleRecipient = composeSelectedRecipients()[0] || smsReadyBikers()[0] || activeBikers()[0] || null;
   const templateMode = state.composeMode === "new" && state.composeBodyMode === "template";
   const body = composeMessage?.value.trim() || "";
   const showPreview = templateMode || Boolean(body) || state.composeMode !== "new";
@@ -2697,6 +3433,47 @@ function renderComposeBodyState() {
   }
 }
 
+function renderComposeScheduleQuickDayOptions() {
+  if (!composeScheduleQuickDay) {
+    return;
+  }
+
+  const options = buildScheduleQuickDayOptions();
+  const selectedDateValue = currentComposeScheduleDateValue();
+  renderSelectOptions(
+    composeScheduleQuickDay,
+    options,
+    selectedDateValue,
+    { placeholder: "Choose tomorrow or another nearby day" }
+  );
+
+  if (composeScheduleQuickHint) {
+    const selectedOption = options.find((item) => item.value === selectedDateValue);
+    composeScheduleQuickHint.textContent = selectedOption
+      ? `${selectedOption.label}. You can still adjust the time below.`
+      : "Pick a nearby day, then fine-tune the time below if needed.";
+  }
+}
+
+function applyComposeScheduleQuickDay(dateValue) {
+  const selectedDateValue = String(dateValue || "").trim();
+  if (!composeSendAt || !selectedDateValue) {
+    renderComposeScheduleQuickDayOptions();
+    return;
+  }
+
+  const selectedDate = parseDateValue(`${selectedDateValue}T00:00`);
+  if (!selectedDate) {
+    renderComposeScheduleQuickDayOptions();
+    return;
+  }
+
+  const existingDate = parseDateValue(composeSendAt.value) || nextRoundedHourDate();
+  selectedDate.setHours(existingDate.getHours(), existingDate.getMinutes(), 0, 0);
+  composeSendAt.value = formatDateTimeInputValue(selectedDate);
+  renderComposeScheduleQuickDayOptions();
+}
+
 function renderComposeWhen() {
   if (composeWhenRow) {
     [...composeWhenRow.querySelectorAll(".category-pill")].forEach((pill) => {
@@ -2707,6 +3484,9 @@ function renderComposeWhen() {
   const scheduling = state.composeWhen === "later" || state.composeMode === "edit-schedule";
   if (composeScheduleRow) {
     composeScheduleRow.classList.toggle("hidden", !scheduling);
+  }
+  if (scheduling) {
+    renderComposeScheduleQuickDayOptions();
   }
 
   if (composeSubmit) {
@@ -2723,21 +3503,23 @@ function syncComposeBikerOptions(selectedId) {
     return;
   }
 
-  const recipients = activeBikers();
+  const recipients = smsReadyBikers();
   const selectedBiker = state.bikers.find((biker) => biker.id === selectedId);
   const options = [...recipients];
   if (selectedBiker && !isActiveBiker(selectedBiker) && !options.some((biker) => biker.id === selectedBiker.id)) {
     options.unshift(selectedBiker);
+  } else if (selectedBiker && isActiveBiker(selectedBiker) && !hasValidBikerPhoneNumber(selectedBiker) && !options.some((biker) => biker.id === selectedBiker.id)) {
+    options.unshift(selectedBiker);
   }
 
   if (options.length === 0) {
-    composeBiker.innerHTML = '<option value="">No active bikers available</option>';
+    composeBiker.innerHTML = '<option value="">No active bikers with valid phone numbers available</option>';
     composeBiker.value = "";
     return;
   }
 
   composeBiker.innerHTML = options.map((biker) => `
-    <option value="${escapeHtml(biker.id)}">${escapeHtml(biker.name)} — ${escapeHtml(biker.bikePlate)}${isActiveBiker(biker) ? "" : " (Inactive)"}</option>
+    <option value="${escapeHtml(biker.id)}">${escapeHtml(biker.name)} — ${escapeHtml(biker.bikePlate || biker.phoneNumber)}${isActiveBiker(biker) ? (hasValidBikerPhoneNumber(biker) ? "" : " (Invalid phone)") : " (Inactive)"}</option>
   `).join("");
 
   if (selectedId && options.some((biker) => biker.id === selectedId)) {
@@ -2754,7 +3536,8 @@ function renderComposeRecipients() {
     return;
   }
 
-  const recipients = activeBikers();
+  const recipients = smsReadyBikers();
+  const invalidRecipients = activeBikers().filter((biker) => !hasValidBikerPhoneNumber(biker));
   for (const id of [...state.composeRecipients]) {
     if (!recipients.some((biker) => biker.id === id)) {
       state.composeRecipients.delete(id);
@@ -2762,11 +3545,29 @@ function renderComposeRecipients() {
   }
 
   if (recipients.length === 0) {
-    composeRecipientList.innerHTML = `
-      <div class="empty-table">No active recipients available. Mark a rider Active in Recipients first.</div>
-    `;
+    const invalidMarkup = invalidRecipients.length > 0
+      ? `
+        <div class="recipient-warning-label">Fix these phone numbers first</div>
+        ${invalidRecipients.map((biker) => `
+          <div class="recipient-item recipient-preview recipient-item-warning">
+            <span class="recipient-name">${escapeHtml(biker.name)}</span>
+            <span class="recipient-meta">${escapeHtml(describeBikerPhoneNumber(biker))}</span>
+          </div>
+        `).join("")}
+      `
+      : "";
+    composeRecipientList.innerHTML = invalidRecipients.length > 0
+      ? `
+        <div class="empty-table">No active recipients currently have a valid phone number.</div>
+        ${invalidMarkup}
+      `
+      : `
+        <div class="empty-table">No active recipients available. Mark a rider Active in Recipients first.</div>
+      `;
     if (composeRecipientCount) {
-      composeRecipientCount.textContent = "0 of 0 selected";
+      composeRecipientCount.textContent = invalidRecipients.length > 0
+        ? `0 of 0 ready • ${invalidRecipients.length} invalid`
+        : "0 of 0 selected";
     }
     if (composeAllBikers) {
       composeAllBikers.checked = false;
@@ -2776,19 +3577,34 @@ function renderComposeRecipients() {
     return;
   }
 
-  composeRecipientList.innerHTML = recipients.map((biker) => `
+  const validMarkup = recipients.map((biker) => `
     <label class="recipient-item">
       <input type="checkbox" data-recipient-id="${escapeHtml(biker.id)}" ${state.composeRecipients.has(biker.id) ? "checked" : ""}>
       <span class="recipient-name">${escapeHtml(biker.name)}</span>
       <span class="recipient-meta">${escapeHtml(biker.bikePlate || biker.phoneNumber)}</span>
     </label>
   `).join("");
+  const invalidMarkup = invalidRecipients.length > 0
+    ? `
+      <div class="recipient-warning-label">Skipped until phone number is fixed</div>
+      ${invalidRecipients.map((biker) => `
+        <div class="recipient-item recipient-preview recipient-item-warning">
+          <span class="recipient-name">${escapeHtml(biker.name)}</span>
+          <span class="recipient-meta">${escapeHtml(describeBikerPhoneNumber(biker))}</span>
+        </div>
+      `).join("")}
+    `
+    : "";
+
+  composeRecipientList.innerHTML = `${validMarkup}${invalidMarkup}`;
 
   const total = recipients.length;
   const count = state.composeRecipients.size;
 
   if (composeRecipientCount) {
-    composeRecipientCount.textContent = `${count} of ${total} selected`;
+    composeRecipientCount.textContent = invalidRecipients.length > 0
+      ? `${count} of ${total} ready • ${invalidRecipients.length} invalid`
+      : `${count} of ${total} selected`;
   }
   if (composeAllBikers) {
     composeAllBikers.disabled = false;
@@ -2830,6 +3646,7 @@ function openCompose(mode = "new", target = null) {
   state.composeTargetId = target?.id || "";
   composeForm.reset();
   setNotice(composeNotice, "");
+  renderComposeRepeatOptions(target?.recurrence || "ONCE");
 
   if (composeWhenField) {
     composeWhenField.classList.toggle("hidden", mode !== "new");
@@ -2856,7 +3673,7 @@ function openCompose(mode = "new", target = null) {
     syncComposeBikerOptions(target.bikerId);
     if (composeMessage) composeMessage.value = target.body;
     if (composeSendAt) composeSendAt.value = formatDateTimeInputValue(target.sendAt);
-    if (composeRepeat) composeRepeat.value = String(target.recurrence || "ONCE").toUpperCase();
+    renderComposeRepeatOptions(String(target.recurrence || "ONCE").toUpperCase());
   } else {
     const defaultTemplateId = activeTemplates()[0]?.id || "";
     state.composeTargetMode = "current";
@@ -2866,8 +3683,8 @@ function openCompose(mode = "new", target = null) {
     state.composeWhen = "now";
     state.composeRecipients.clear();
     ensureComposeBatchSelection();
-    if (activeBikers().length === 1) {
-      state.composeRecipients.add(activeBikers()[0].id);
+    if (smsReadyBikers().length === 1) {
+      state.composeRecipients.add(smsReadyBikers()[0].id);
     }
     state.lastSuggestion = "";
     if (composeTitle) composeTitle.textContent = "New SMS";
@@ -2879,11 +3696,9 @@ function openCompose(mode = "new", target = null) {
     renderComposeBatchOptions();
     renderComposeBatchRecipients();
     if (composeSendAt) {
-      const nextHour = new Date(Date.now() + 60 * 60 * 1000);
-      nextHour.setMinutes(0, 0, 0);
-      composeSendAt.value = formatDateTimeInputValue(nextHour);
+      composeSendAt.value = formatDateTimeInputValue(nextRoundedHourDate());
     }
-    if (composeRepeat) composeRepeat.value = "ONCE";
+    renderComposeRepeatOptions("ONCE");
     if (composeMessage) {
       composeMessage.value = "";
     }
@@ -2947,15 +3762,21 @@ function buildComposePayloadForBiker(biker) {
 async function submitCompose() {
   const bikerId = composeBiker?.value || "";
   const recipients = composeSelectedRecipients();
+  const invalidRecipients = composeSelectedInvalidRecipients();
   const dispatchRecipients = state.composeMode === "new"
     ? composeDispatchRecipients()
     : recipients;
+  const invalidRecipientNote = invalidRecipients.length > 0
+    ? `Skipped invalid phone numbers — ${formatInvalidPhoneRecipientSummary(invalidRecipients)}.`
+    : "";
 
   if (recipients.length === 0) {
     setNotice(
       composeNotice,
       state.composeMode === "new" && state.composeTargetMode === "batch"
-        ? "Choose a batch with at least one active registered biker first."
+        ? invalidRecipients.length > 0
+          ? `This batch has no valid SMS phone numbers yet. Fix these recipients first — ${formatInvalidPhoneRecipientSummary(invalidRecipients)}.`
+          : "Choose a batch with at least one active registered biker first."
         : "Select at least one biker first.",
       "error"
     );
@@ -3048,7 +3869,11 @@ async function submitCompose() {
     }
 
     if (created === 0) {
-      setNotice(composeNotice, `Nothing was scheduled. ${failures.join(" — ")}`, "error");
+      setNotice(
+        composeNotice,
+        ["Nothing was scheduled.", invalidRecipientNote, failures.join(" — ")].filter(Boolean).join(" "),
+        "error"
+      );
       return;
     }
 
@@ -3056,10 +3881,15 @@ async function submitCompose() {
     await loadAll();
     setNotice(
       pageNotice,
-      failures.length > 0
-        ? `Scheduled ${created} of ${dispatchRecipients.length}. Failed — ${failures.join(" — ")}`
+      failures.length > 0 || invalidRecipients.length > 0
+        ? [
+            `Scheduled ${created} send${created > 1 ? "s" : ""}.`,
+            `Planned for ${formatDate(new Date(rawSendAt).toISOString())}.`,
+            invalidRecipientNote,
+            failures.length > 0 ? `Failed — ${failures.join(" — ")}` : ""
+          ].filter(Boolean).join(" ")
         : `Scheduled ${created} send${created > 1 ? "s" : ""} for ${formatDate(new Date(rawSendAt).toISOString())}.`,
-      failures.length > 0 ? "error" : "success"
+      failures.length > 0 || invalidRecipients.length > 0 ? "error" : "success"
     );
     return;
   }
@@ -3068,6 +3898,19 @@ async function submitCompose() {
   if (!password) {
     return;
   }
+
+  const batchGroup = state.composeMode === "new" && state.composeTargetMode === "batch"
+    ? (() => {
+        const batch = state.batches.find((item) => item.id === state.composeBatchId);
+        return batch
+          ? {
+              sendGroupId: createClientId("batch-send"),
+              sendGroupKind: BATCH_SEND_GROUP_KIND,
+              sendGroupLabel: batch.name
+            }
+          : null;
+      })()
+    : null;
 
   setNotice(composeNotice, `Queueing ${dispatchRecipients.length} SMS...`);
   let queued = 0;
@@ -3088,6 +3931,7 @@ async function submitCompose() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...payload,
+          ...(batchGroup || {}),
           password
         })
       });
@@ -3118,17 +3962,26 @@ async function submitCompose() {
   }
 
   if (queued === 0) {
-    setNotice(composeNotice, `Nothing was queued. ${failures.join(" — ")}`, "error");
+    setNotice(
+      composeNotice,
+      ["Nothing was queued.", invalidRecipientNote, failures.join(" — ")].filter(Boolean).join(" "),
+      "error"
+    );
     return;
   }
 
   closeModal(composeModal);
   setNotice(
     pageNotice,
-    failures.length > 0
-      ? `Queued ${queued} of ${dispatchRecipients.length} SMS. Failed — ${failures.join(" — ")}`
+    failures.length > 0 || invalidRecipients.length > 0
+      ? [
+          `Queued ${queued} SMS.`,
+          lastAvailableAt ? `They release at ${formatDate(lastAvailableAt)} — until then you can edit or delete them on the SMS page.` : "",
+          invalidRecipientNote,
+          failures.length > 0 ? `Failed — ${failures.join(" — ")}` : ""
+        ].filter(Boolean).join(" ")
       : `Queued ${queued} SMS. ${lastAvailableAt ? `They release at ${formatDate(lastAvailableAt)} — until then you can edit or delete them on the SMS page.` : ""}`,
-    failures.length > 0 ? "error" : "success"
+    failures.length > 0 || invalidRecipients.length > 0 ? "error" : "success"
   );
 }
 
@@ -3150,6 +4003,112 @@ async function handleDeleteMessage(messageId) {
     setNotice(pageNotice, response.note || "Pending SMS deleted.", "success");
   } catch (error) {
     setNotice(pageNotice, error.message, "error");
+  }
+}
+
+async function handleDeleteMessageGroup(sendGroupId) {
+  const messages = state.messages.filter((item) => String(item.sendGroupId || "").trim() === String(sendGroupId || "").trim());
+  if (messages.length === 0) {
+    return;
+  }
+
+  const groupLabel = messages[0]?.sendGroupLabel || "this batch";
+  if (!window.confirm(`Delete the pending batch SMS for ${groupLabel}?`)) {
+    return;
+  }
+
+  setNotice(pageNotice, `Deleting pending batch SMS for ${groupLabel}...`);
+  const failures = [];
+
+  for (const message of messages) {
+    try {
+      await fetchJson(`/api/messages/${encodeURIComponent(message.id)}`, { method: "DELETE" });
+    } catch (error) {
+      failures.push(`${message.bikerName}: ${error.message}`);
+    }
+  }
+
+  await loadAll();
+
+  if (failures.length > 0) {
+    setNotice(pageNotice, `Some batch messages could not be deleted. ${failures.join(" — ")}`, "error");
+    return;
+  }
+
+  setNotice(pageNotice, `Pending batch SMS deleted for ${groupLabel}.`, "success");
+}
+
+function buildRetryMessagePayload(message, password) {
+  const payload = {
+    bikerId: message.bikerId,
+    category: message.category,
+    body: String(message.editorBody || message.body || "").trim(),
+    password
+  };
+
+  if (message.source) {
+    payload.source = message.source;
+  }
+  if (message.templateId) {
+    payload.templateId = message.templateId;
+  }
+  if (message.workflowStage) {
+    payload.workflowStage = message.workflowStage;
+  }
+  if (message.workflowCategory) {
+    payload.workflowCategory = message.workflowCategory;
+  }
+  if (message.workflowUrgency) {
+    payload.workflowUrgency = message.workflowUrgency;
+  }
+  if (message.sendGroupId) {
+    payload.sendGroupId = message.sendGroupId;
+  }
+  if (message.sendGroupKind) {
+    payload.sendGroupKind = message.sendGroupKind;
+  }
+  if (message.sendGroupLabel) {
+    payload.sendGroupLabel = message.sendGroupLabel;
+  }
+
+  return payload;
+}
+
+async function handleRetryMessage(messageId) {
+  const message = state.messages.find((item) => item.id === messageId);
+  if (!message || !isFailedMessage(message)) {
+    setNotice(pageNotice, "Only failed SMS can be retried.", "error");
+    return;
+  }
+
+  const password = await requestSendPassword({ messageCount: 1 });
+  if (!password) {
+    return;
+  }
+
+  state.retryingMessageIds.add(messageId);
+  renderRecentTable();
+
+  try {
+    const response = await fetchJson("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildRetryMessagePayload(message, password))
+    });
+    await loadAll();
+    if (isBatchSendGroupMessage(message)) {
+      state.expandedRecentBatchIds.add(String(message.sendGroupId || "").trim());
+    }
+    setNotice(
+      pageNotice,
+      `Retry queued for ${message.bikerName}.${response.item?.availableAt ? ` It releases at ${formatDate(response.item.availableAt)}.` : ""}`,
+      "success"
+    );
+  } catch (error) {
+    setNotice(pageNotice, error.message, "error");
+  } finally {
+    state.retryingMessageIds.delete(messageId);
+    renderRecentTable();
   }
 }
 
@@ -3208,6 +4167,7 @@ function renderAll() {
   renderServerHealth();
   renderGatewayCard();
   renderBundleCard();
+  renderOverviewRecurringScheduleTable();
   renderRecentTable();
   renderSmsTable();
   renderScheduleTable();
@@ -3279,9 +4239,7 @@ if (bundleDetailsToggle) {
 
 if (newScheduleButton) {
   newScheduleButton.addEventListener("click", () => {
-    openCompose("new");
-    state.composeWhen = "later";
-    renderComposeWhen();
+    openNewScheduleCompose();
   });
 }
 
@@ -3309,9 +4267,19 @@ if (recentNextButton) {
 
 if (recentTableBody) {
   recentTableBody.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-action='toggle-reveal']");
-    if (button) {
+    const button = event.target.closest("[data-action]");
+    if (!button) {
+      return;
+    }
+
+    if (button.dataset.action === "toggle-reveal") {
       toggleReveal(button.dataset.messageId);
+    } else if (button.dataset.action === "toggle-batch-failures") {
+      toggleRecentBatchDetails(button.dataset.sendGroupId);
+    } else if (button.dataset.action === "retry-message") {
+      handleRetryMessage(button.dataset.messageId).catch((error) => {
+        setNotice(pageNotice, error.message, "error");
+      });
     }
   });
 }
@@ -3331,6 +4299,8 @@ if (smsTableBody) {
       } else {
         setNotice(pageNotice, "Only pending SMS can be edited.", "error");
       }
+    } else if (button.dataset.action === "delete-message-group") {
+      handleDeleteMessageGroup(button.dataset.sendGroupId);
     } else if (button.dataset.action === "delete-message") {
       handleDeleteMessage(messageId);
     }
@@ -3339,6 +4309,27 @@ if (smsTableBody) {
 
 if (scheduleTableBody) {
   scheduleTableBody.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-action]");
+    if (!button) {
+      return;
+    }
+
+    const scheduleId = button.dataset.scheduleId;
+    if (button.dataset.action === "edit-schedule") {
+      const schedule = state.schedules.find((item) => item.id === scheduleId);
+      if (schedule) {
+        openCompose("edit-schedule", schedule);
+      }
+    } else if (button.dataset.action === "toggle-schedule") {
+      handleToggleSchedule(scheduleId);
+    } else if (button.dataset.action === "delete-schedule") {
+      handleDeleteSchedule(scheduleId);
+    }
+  });
+}
+
+if (overviewRecurringScheduleBody) {
+  overviewRecurringScheduleBody.addEventListener("click", (event) => {
     const button = event.target.closest("[data-action]");
     if (!button) {
       return;
@@ -3986,6 +4977,18 @@ if (composeBiker) {
 if (composeMessage) {
   composeMessage.addEventListener("input", () => {
     renderComposeTemplatePreview();
+  });
+}
+
+if (composeScheduleQuickDay) {
+  composeScheduleQuickDay.addEventListener("change", () => {
+    applyComposeScheduleQuickDay(composeScheduleQuickDay.value || "");
+  });
+}
+
+if (composeSendAt) {
+  composeSendAt.addEventListener("input", () => {
+    renderComposeScheduleQuickDayOptions();
   });
 }
 

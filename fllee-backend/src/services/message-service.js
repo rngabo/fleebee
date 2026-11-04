@@ -8,9 +8,11 @@ const {
   getMessageSignature,
   isDispatchPasswordValid
 } = require("./setting-service");
+const { hasValidSmsPhoneNumber, normalizePhoneNumber } = require("./workflow-support");
 
 const EDITABLE_MESSAGE_STATUSES = new Set(["pending"]);
 const DUPLICATE_MESSAGE_STATUSES = ["pending", "queued", "dispatched", "submitted", "sent"];
+const SEND_GROUP_KIND_SET = new Set(["batch"]);
 
 function normalizeCategory(value) {
   const allowed = new Set(["REMINDER", "GENERAL", "EMERGENCY"]);
@@ -25,10 +27,6 @@ function normalizeMessageBody(value) {
     .toLowerCase();
 }
 
-function normalizePhoneNumber(value) {
-  return String(value || "").replace(/\D+/g, "");
-}
-
 function normalizeMessageSource(value) {
   const normalized = String(value || "").trim().toLowerCase();
   if (normalized === "scheduled") {
@@ -40,6 +38,21 @@ function normalizeMessageSource(value) {
   }
 
   return "manual";
+}
+
+function normalizeSendGroupId(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
+}
+
+function normalizeSendGroupKind(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return SEND_GROUP_KIND_SET.has(normalized) ? normalized : null;
+}
+
+function normalizeSendGroupLabel(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
 }
 
 function isTestRoutingMode(phone) {
@@ -118,6 +131,9 @@ function serializeMessage(message) {
     templateId: message.templateId || "",
     source: message.source,
     scheduledMessageId: message.scheduledMessageId || "",
+    sendGroupId: message.sendGroupId || "",
+    sendGroupKind: message.sendGroupKind || "",
+    sendGroupLabel: message.sendGroupLabel || "",
     category: message.category,
     body: message.deliveryBody || message.body,
     editorBody: message.body,
@@ -236,6 +252,17 @@ async function buildMessageWriteData(payload, { excludeMessageId = null } = {}) 
     };
   }
 
+  if (!hasValidSmsPhoneNumber(targetNumber)) {
+    return {
+      statusCode: 400,
+      body: {
+        error: isTestRoutingMode(phone)
+          ? `Test routing is enabled, but the configured test number ${targetNumber || "(blank)"} is not valid for SMS.`
+          : `${biker.name} has an invalid phone number (${String(biker.phoneNumber || "").trim() || "(blank)"}). Update the recipient record before sending SMS.`
+      }
+    };
+  }
+
   const duplicate = await findRecentDuplicate(
     biker.id,
     normalizedBody,
@@ -314,6 +341,9 @@ async function queueMessageForDispatch(payload, { requirePassword = false } = {}
     targetNumberNormalized
   } = record.body;
   const availableAt = buildPendingReleaseAt();
+  const sendGroupId = normalizeSendGroupId(payload.sendGroupId);
+  const sendGroupKind = normalizeSendGroupKind(payload.sendGroupKind);
+  const sendGroupLabel = sendGroupId ? normalizeSendGroupLabel(payload.sendGroupLabel) : null;
 
   const message = await prisma.message.create({
     data: {
@@ -324,6 +354,9 @@ async function queueMessageForDispatch(payload, { requirePassword = false } = {}
       templateId: payload.templateId ? String(payload.templateId).trim() : null,
       source: normalizeMessageSource(payload.source),
       scheduledMessageId: payload.scheduledMessageId ? String(payload.scheduledMessageId).trim() : null,
+      sendGroupId,
+      sendGroupKind,
+      sendGroupLabel,
       category,
       body,
       deliveryBody,
@@ -421,6 +454,9 @@ async function updatePendingMessage(id, payload) {
       templateId: existing.templateId || null,
       source: existing.source,
       scheduledMessageId: existing.scheduledMessageId || null,
+      sendGroupId: existing.sendGroupId || null,
+      sendGroupKind: existing.sendGroupKind || null,
+      sendGroupLabel: existing.sendGroupLabel || null,
       category,
       body,
       deliveryBody,

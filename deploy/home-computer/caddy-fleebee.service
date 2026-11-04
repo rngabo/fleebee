@@ -1,0 +1,19 @@
+[Unit]
+Description=Fleebee Caddy reverse proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/fleebee/proxy
+Environment=XDG_CONFIG_HOME=%h/fleebee/proxy/config
+Environment=XDG_DATA_HOME=%h/fleebee/proxy/data
+Environment=XDG_STATE_HOME=%h/fleebee/proxy/state
+ExecStart=%h/fleebee/proxy/bin/caddy run --environ --config %h/fleebee/proxy/config/Caddyfile --adapter caddyfile
+ExecReload=%h/fleebee/proxy/bin/caddy reload --config %h/fleebee/proxy/config/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

@@ -10,20 +10,26 @@ Fleebee is a home-computer + Android SMS gateway system for managing bikers and 
   Source for the dashboard static assets
 - `android-app/`
   Samsung phone gateway that claims jobs and sends SMS
+- `fine-monitor/`
+  Sequential Irembo traffic-fine worker with manual refresh and daily/weekly scheduling
+- `data-sync/`
+  Read-only Google Sheets accounting worker with manual refresh and a configurable two-day default schedule
 
 ## Confirmed Access
 
-As of `2026-07-05`, these paths are confirmed:
+As of `2026-07-26`, these paths are confirmed:
 
 - LAN SSH: `ssh richard@192.168.1.50`
-- Public SSH: `ssh -p 2222 richard@196.12.139.27`
+- Public SSH: `ssh -p 2222 richard@41.173.248.47`
 - LAN app URL: `http://192.168.1.50:4100`
+- Direct public app URL: `http://41.173.248.47:4100`
 - Configured public hostname: `https://fleebee.esonga.online`
 
-Important note:
+Important notes:
 
-- Public SSH forwarding is confirmed.
-- Public browser access to Fleebee on port `4100` is not yet confirmed.
+- Public SSH forwarding is confirmed on `41.173.248.47`.
+- Public HTTPS service is live through the home-computer Caddy proxy.
+- Some DNS resolvers may still cache the older Fleebee IP until propagation finishes, so direct-IP testing can still be useful during cutover.
 
 ## Important Runtime Config
 
@@ -79,11 +85,12 @@ USB note:
 The home computer uses a user-level systemd service:
 
 - `~/.config/systemd/user/fleebee.service`
+- `~/.config/systemd/user/caddy-fleebee.service`
 
 Connect first:
 
 ```bash
-ssh -p 2222 richard@196.12.139.27
+ssh -p 2222 richard@41.173.248.47
 ```
 
 Then use:
@@ -94,6 +101,10 @@ systemctl --user stop fleebee.service
 systemctl --user restart fleebee.service
 systemctl --user status fleebee.service
 journalctl --user -u fleebee.service -f
+
+systemctl --user restart caddy-fleebee.service
+systemctl --user status caddy-fleebee.service
+journalctl --user -u caddy-fleebee.service -f
 ```
 
 One-time requirement on the home computer:
@@ -110,6 +121,8 @@ Preferred restart flow from the development machine:
 cd /home/richard/APPS/SALVI/2026/fleebee-management
 ./deploy/home-computer/sync-release.sh
 ./deploy/home-computer/restart-service.sh
+./deploy/home-computer/install-user-caddy-proxy.sh
+./deploy/home-computer/restart-proxy.sh
 ```
 
 Temporary workaround if you still cannot enable linger yet:
@@ -124,7 +137,20 @@ That starts Fleebee directly with `nohup` so the page can come back without rely
 Current status note:
 
 - The backend now boots successfully on the home computer with the current Node runtime bundle.
-- The remaining service-lifetime issue is user-systemd lingering: until `loginctl enable-linger` is enabled once for `richard`, `fleebee.service` will stop when the SSH session that restarted it ends.
+- `caddy-fleebee.service` now proxies public `http/https` traffic to Fleebee using a rootless Caddy install on the home computer.
+- The router now maps public `80 -> 8080` and `443 -> 8443` to support that rootless proxy without sudo.
+- The remaining service-lifetime issue is user-systemd lingering: until `loginctl enable-linger` is enabled once for `richard`, both user services can stop when the SSH session that restarted them ends.
+
+## Pending Tasks
+
+- Confirm that `https://fleebee.esonga.online` resolves to `41.173.248.47` from the main operator devices after DNS propagation finishes, then treat the hostname as the default public entrypoint.
+- Replace the public-facing weak credentials on the home-computer deployment:
+  - `SMS_SEND_PASSWORD`
+  - `SMS_ADMIN_PASSWORD`
+  - `APP_LOGIN_PASSWORD`
+  - `APP_SESSION_SECRET`
+- Run `sudo loginctl enable-linger richard` on the home computer so `fleebee.service` and `caddy-fleebee.service` survive SSH logout cleanly.
+- Decide whether to keep the current dynamic-public-IP workflow or add DDNS / another stable DNS update path if the WAN IP keeps changing.
 
 ## Local Run
 

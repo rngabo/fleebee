@@ -40,6 +40,15 @@ function normalizeRequiredText(value) {
   return String(value ?? "").trim();
 }
 
+function normalizePhoneNumber(value) {
+  return String(value ?? "").replace(/\D+/g, "");
+}
+
+function hasValidSmsPhoneNumber(value) {
+  const digits = normalizePhoneNumber(value);
+  return digits.length >= 10 && digits.length <= 15;
+}
+
 function normalizeStage(value, fallback = "LEAD_CAPTURED") {
   const normalized = normalizeRequiredText(value).toUpperCase();
   if (!normalized) {
@@ -122,6 +131,8 @@ module.exports = {
   WORKFLOW_URGENCY_LEVELS,
   buildFirstName,
   formatDateLabel,
+  hasValidSmsPhoneNumber,
+  normalizePhoneNumber,
   normalizeBoolean,
   normalizeCategory,
   normalizeDateTime,

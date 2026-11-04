@@ -28,41 +28,48 @@ ssh richard@192.168.1.50
 
 ### Current public IPv4 setup
 
-The currently working public SSH path is:
+As of `2026-07-26`, the currently working public access path is:
 
-- Public IPv4: `196.12.139.27`
-- Public SSH command: `ssh -p 2222 richard@196.12.139.27`
-- Router forward: `196.12.139.27:2222 -> 192.168.1.50:22 -> richard-Vostro-230`
+- Public IPv4: `41.173.248.47`
+- Public SSH command: `ssh -p 2222 richard@41.173.248.47`
+- Direct public app URL: `http://41.173.248.47:4100`
+- Public hostname target: `https://fleebee.esonga.online`
+
+Router forwards currently in use:
+
+- `2222 -> 22` on `192.168.1.50`
+- `4100 -> 4100` on `192.168.1.50`
+- `80 -> 8080` on `192.168.1.50`
+- `443 -> 8443` on `192.168.1.50`
 
 ### Current test result for active public IPv4 path
 
-On `2026-07-05`, testing from the current machine succeeded and reached the home computer:
+On `2026-07-26`, testing confirmed:
 
 ```text
-remote-ok
+public-ssh-ok
 host=richard-Vostro-230
-ips=192.168.1.50 2c0f:fe30:4bf9:0:ac7e:56d5:34a1:f9b1 2c0f:fe30:4bf9:0:7eb7:5064:c0e4:c654
 ```
 
-So the current public IPv4 SSH path is **confirmed working**.
-
-### Older IPv4 setup
-
-The old public IPv4 notes were:
-
-- Public IPv4: `196.216.80.163`
-- Public SSH command: `ssh -p 2222 richard@196.216.80.163`
-- Expected router forward: `196.216.80.163:2222 -> 192.168.1.50:22`
-
-### Current test result for old IPv4 path
-
-On `2026-07-05`, testing from the current machine gave:
+and the public Fleebee paths reached the live app:
 
 ```text
-ssh: connect to host 196.216.80.163 port 2222: Connection timed out
+http://41.173.248.47:4100/health -> {"status":"ok","service":"fleebee-app","storage":"sqlite"}
+http://41.173.248.47:80 -> 301 Location: https://fleebee.esonga.online/
+https://41.173.248.47:443 (with Host/SNI fleebee.esonga.online) -> Fleebee via Caddy with a valid Let's Encrypt certificate
 ```
 
-So the old public IPv4 SSH path is **not currently confirmed working**.
+So the current public IPv4 SSH path and the public Fleebee HTTP/HTTPS service are **confirmed working** on the current IP.
+
+### Older public IPv4 notes
+
+Earlier public IP values seen during the project included:
+
+- `196.12.139.27`
+- `196.216.80.163`
+- `41.216.122.219`
+
+These should now be treated as historical/stale notes, not current endpoints.
 
 ## IPv6 Notes
 
@@ -98,8 +105,15 @@ So IPv6 SSH is also **not currently confirmed working** from this machine.
 For current Fleebee setup and deployment work, use:
 
 - LAN SSH: `ssh richard@192.168.1.50`
-- Public SSH: `ssh -p 2222 richard@196.12.139.27`
+- Public SSH: `ssh -p 2222 richard@41.173.248.47`
 - LAN app URL: `http://192.168.1.50:4100`
+- Direct public app URL: `http://41.173.248.47:4100`
+- Public hostname: `https://fleebee.esonga.online`
+
+Important DNS note:
+
+- On `2026-07-26`, the authoritative HostGator DNS and Cloudflare `1.1.1.1` already returned `41.173.248.47`, while Google `8.8.8.8` was still returning the older `41.216.122.219`.
+- If a device still resolves Fleebee to the old IP during propagation, use the direct IP temporarily.
 
 These are the currently confirmed working connection details.
 
@@ -115,7 +129,15 @@ To confirm access from outside the home network, the cleanest test is:
 Suggested checks:
 
 ```bash
-ssh -p 2222 richard@196.12.139.27
+ssh -p 2222 richard@41.173.248.47
+```
+
+Then test:
+
+```bash
+curl -I http://41.173.248.47:4100/health
+curl -I http://fleebee.esonga.online
+curl -I https://fleebee.esonga.online
 ```
 
 or, if IPv6 is intentionally opened and confirmed later:
@@ -137,4 +159,49 @@ For the current local deployment shape, the key values remain:
 Important note:
 
 - Public SSH forwarding is confirmed.
-- Public HTTP forwarding for Fleebee on port `4100` is **not** yet confirmed by this document.
+- Public HTTP forwarding for Fleebee on port `4100` is confirmed.
+- Public HTTPS for `fleebee.esonga.online` is live through a rootless Caddy proxy on `.50` that listens on local `8080/8443`.
+
+## Pending Deployment Tasks
+
+- Recheck `fleebee.esonga.online` from at least one outside network after DNS propagation fully settles, especially on resolvers that previously still returned `41.216.122.219`.
+- Keep the current router forwards as-is:
+  - `2222 -> 22`
+  - `4100 -> 4100`
+  - `80 -> 8080`
+  - `443 -> 8443`
+- Enable lingering once on `.50` with `sudo loginctl enable-linger richard` so both user-level services survive logout.
+- Rotate the public-facing passwords and session secret before treating the new HTTPS endpoint as normal production access.
+- If the ISP keeps changing the WAN IP, add DDNS or another automated DNS update path so `fleebee.esonga.online` stays aligned with the live public IP.
+
+## Fine Monitor
+
+As of `2026-09-19`, the home computer has the all-plate Fine Monitor:
+
+- worker directory: `/home/richard/fleebee/current/fine-monitor`
+- protected worker environment: `/home/richard/fleebee/shared/fine-monitor.env`
+- browser runtime: user-local Playwright Chromium
+- Fleebee page: `/contraventions.html`
+- navigation label: `Check fines` under `Operations`
+- current plate scope: all eligible registered plates (`FINE_MONITOR_PLATE` is blank)
+- automatic schedule: enabled; weekly by default, daily selectable in the UI
+- backend scheduler poll: once per minute
+
+Manual worker command:
+
+```bash
+cd /home/richard/fleebee/current/fine-monitor
+FINE_MONITOR_ENV_FILE=/home/richard/fleebee/shared/fine-monitor.env \
+  /home/richard/fleebee/runtime/node/bin/node src/run-once.js
+```
+
+The Fleebee and worker environment files contain the same private service token.
+Never copy the TIN or token into source control, browser code, or logs.
+
+The first all-plate validation attempted 13 plates, stored 11 current fines,
+confirmed 3 clear plates, and preserved one plate/TIN mismatch as a failed
+lookup. The current displayed total from that run is `RWF 141,000`.
+
+Before the production schema update, the database was backed up to:
+
+- `/home/richard/fleebee/backups/fleebee-before-fine-monitor-20260919-131416.db`

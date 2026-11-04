@@ -4,8 +4,18 @@ const { prisma } = require("../lib/prisma");
 const { queueMessageForDispatch } = require("./message-service");
 
 const ALLOWED_CATEGORIES = new Set(["REMINDER", "GENERAL", "EMERGENCY"]);
-const ALLOWED_RECURRENCES = new Set(["ONCE", "DAILY", "WEEKLY", "MONTHLY"]);
+const ALLOWED_RECURRENCES = new Set([
+  "ONCE",
+  "DAILY",
+  "WEEKLY",
+  "MONTHLY",
+  "EVERY_2_MONTHS",
+  "EVERY_3_MONTHS",
+  "EVERY_4_MONTHS",
+  "EVERY_5_MONTHS"
+]);
 const ALLOWED_STATUSES = new Set(["active", "paused", "completed"]);
+const VISIBLE_SCHEDULE_STATUSES = ["active", "paused"];
 
 function normalizeRecurrence(value) {
   const normalized = String(value || "").trim().toUpperCase();
@@ -59,6 +69,15 @@ function buildMonthlyDate(year, monthIndex, dayOfMonth, hour, minute) {
   return buildDate(year, monthIndex, Math.min(dayOfMonth, lastDay), hour, minute);
 }
 
+function recurrenceMonthInterval(recurrence) {
+  if (recurrence === "MONTHLY") return 1;
+  if (recurrence === "EVERY_2_MONTHS") return 2;
+  if (recurrence === "EVERY_3_MONTHS") return 3;
+  if (recurrence === "EVERY_4_MONTHS") return 4;
+  if (recurrence === "EVERY_5_MONTHS") return 5;
+  return 0;
+}
+
 function deriveScheduleParts(sendAt) {
   return {
     timeOfDay: formatTimeOfDay(sendAt),
@@ -90,8 +109,9 @@ function buildNextOccurrence(baseDate, recurrence, scheduleParts) {
     );
   }
 
-  if (recurrence === "MONTHLY") {
-    const targetMonthIndex = baseDate.getMonth() + 1;
+  const monthInterval = recurrenceMonthInterval(recurrence);
+  if (monthInterval > 0) {
+    const targetMonthIndex = baseDate.getMonth() + monthInterval;
     const year = baseDate.getFullYear() + Math.floor(targetMonthIndex / 12);
     const monthIndex = targetMonthIndex % 12;
     return buildMonthlyDate(year, monthIndex, scheduleParts.dayOfMonth, hour, minute);
@@ -186,7 +206,13 @@ function sortSchedules(items) {
 }
 
 async function listScheduledMessages() {
-  const items = await prisma.scheduledMessage.findMany();
+  const items = await prisma.scheduledMessage.findMany({
+    where: {
+      status: {
+        in: VISIBLE_SCHEDULE_STATUSES
+      }
+    }
+  });
   return sortSchedules(items).map(serializeScheduledMessage);
 }
 
@@ -219,7 +245,7 @@ async function buildScheduleWriteData(payload, existing = null) {
   const recurrence = normalizeRecurrence(payload.recurrence ?? existing?.recurrence);
   if (!recurrence) {
     return {
-      error: "Recurrence must be one of: once, daily, weekly, monthly."
+      error: "Recurrence must be one of: occasionally, monthly, or after 2 to 5 months."
     };
   }
 

@@ -291,6 +291,8 @@ Recommended next hardening:
   Dashboard static assets
 - `android-app/`
   SMS gateway application
+- `fine-monitor/`
+  Isolated one-shot Irembo fine-check worker launched manually or on a daily/weekly schedule
 
 Recommended production behavior:
 
@@ -353,6 +355,50 @@ SMS via SIM card and mobile carrier
 7. Later decide whether outside-home access should use:
    - public HTTPS endpoint
    - or VPN overlay
+
+## Fine Monitor Extension
+
+Fleebee now includes a root-level `fine-monitor/` microservice for read-only
+checks of registered bike plates through the visible Irembo traffic-fines form.
+The current production mode checks all eligible unique plates sequentially.
+Authenticated operators can launch a run with `Refresh` and select daily or
+weekly automatic checks. The backend enforces one active worker at a time.
+
+The service boundary is:
+
+```text
+Irembo visible form <- Playwright <- fine-monitor
+                                      |
+                                      | private token-authenticated JSON
+                                      v
+Browser -> Fleebee backend -> Fleebee SQLite
+```
+
+Key decisions:
+
+- Fleebee remains the owner of bikes, bikers, fines, and check-run history.
+- The scraper receives plate/biker targets and posts results through private,
+  versioned backend routes; it never opens the main SQLite file directly.
+- Browser automation uses semantic form attributes and result-column names,
+  not generated Angular IDs or class ordering.
+- Plates are checked sequentially once per day with delay, bounded retries, an
+  active-run lock, and a circuit breaker for site-wide failures or CAPTCHA.
+- The configured taxpayer number is a worker-only environment secret and never
+  reaches the dashboard or database.
+- `FOUND`, explicit `CLEAR`, and `FAILED` outcomes remain distinct. Only a
+  successful clear result may change whether an earlier fine is still reported.
+- Ingestion is idempotent by Irembo ticket number and does not automatically
+  queue SMS in the first release.
+- The browser reads results only from the session-protected Fleebee backend.
+- A new `Contraventions` page is reached through `Check fines` under
+  `Operations`, immediately below `Bundle Check`, and displays plate number,
+  biker name, issued date, due date, reason, and amount.
+- The page ranks bikers by current contravention count, shows per-biker and
+  overall RWF totals, groups the detailed list by that rank, and keeps Refresh
+  disabled with a loader while a run is active.
+
+The full plan, API contracts, storage changes, scraper flow, security controls,
+testing, and rollout gates are in [fine-monitor/PLAN.md](./fine-monitor/PLAN.md).
 
 ## Final Architecture Decision
 

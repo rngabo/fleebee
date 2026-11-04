@@ -1,0 +1,15 @@
+{
+  "name": "fleebee-fine-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Scheduled Irembo contravention checker for registered Fleebee bikes.",
+  "scripts": {
+    "check": "node src/run-once.js",
+    "check:one": "node src/run-once.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "playwright-core": "^1.55.0"
+  }
+}

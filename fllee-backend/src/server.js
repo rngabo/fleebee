@@ -2,6 +2,14 @@ const { env } = require("./config/env");
 const { prisma } = require("./lib/prisma");
 const { createAppServer } = require("./app");
 const { seedDefaultBikers } = require("./services/biker-service");
+const {
+  runFineMonitorSchedulePoll,
+  stopFineMonitorProcess
+} = require("./services/fine-monitor-runner-service");
+const {
+  runDataSyncSchedulePoll,
+  stopDataSyncProcess
+} = require("./services/data-sync-runner-service");
 const { processDueScheduledMessages } = require("./services/scheduled-message-service");
 const { getPhoneState } = require("./services/phone-service");
 const { ensureSmsSettings } = require("./services/setting-service");
@@ -10,7 +18,11 @@ const { ensureDefaultSmsTemplates } = require("./services/template-service");
 const server = createAppServer();
 let isShuttingDown = false;
 let schedulePollHandle = null;
+let fineMonitorPollHandle = null;
+let dataSyncPollHandle = null;
 let isProcessingSchedules = false;
+let isPollingFineMonitor = false;
+let isPollingDataSync = false;
 
 async function seedDefaults() {
   await seedDefaultBikers();
@@ -45,7 +57,44 @@ async function startServer() {
     server.listen(env.PORT);
   });
 
+  await runFineMonitorPoll();
+  fineMonitorPollHandle = setInterval(() => {
+    runFineMonitorPoll().catch((error) => {
+      console.error("Fine Monitor scheduler failed:", error);
+    });
+  }, env.FINE_MONITOR_SCHEDULER_POLL_MS);
+
+  await runDataSyncPoll();
+  dataSyncPollHandle = setInterval(() => {
+    runDataSyncPoll().catch((error) => {
+      console.error("Data sync scheduler failed:", error);
+    });
+  }, env.DATA_SYNC_SCHEDULER_POLL_MS);
+
   return server;
+}
+
+async function runFineMonitorPoll() {
+  if (isPollingFineMonitor || isShuttingDown) {
+    return;
+  }
+
+  isPollingFineMonitor = true;
+  try {
+    await runFineMonitorSchedulePoll();
+  } finally {
+    isPollingFineMonitor = false;
+  }
+}
+
+async function runDataSyncPoll() {
+  if (isPollingDataSync || isShuttingDown) return;
+  isPollingDataSync = true;
+  try {
+    await runDataSyncSchedulePoll();
+  } finally {
+    isPollingDataSync = false;
+  }
 }
 
 async function runScheduledMessagePoll() {
@@ -74,6 +123,16 @@ async function shutdown(signal) {
     clearInterval(schedulePollHandle);
     schedulePollHandle = null;
   }
+  if (fineMonitorPollHandle) {
+    clearInterval(fineMonitorPollHandle);
+    fineMonitorPollHandle = null;
+  }
+  if (dataSyncPollHandle) {
+    clearInterval(dataSyncPollHandle);
+    dataSyncPollHandle = null;
+  }
+  stopFineMonitorProcess();
+  stopDataSyncProcess();
 
   await new Promise((resolve) => {
     server.close(() => resolve());

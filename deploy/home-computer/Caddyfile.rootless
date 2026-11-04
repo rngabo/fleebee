@@ -1,0 +1,20 @@
+{
+  http_port 8080
+  https_port 8443
+}
+
+http://fleebee.esonga.online {
+  redir https://{host}{uri} permanent
+}
+
+https://fleebee.esonga.online {
+  encode zstd gzip
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "same-origin"
+  }
+
+  reverse_proxy 127.0.0.1:4100
+}
