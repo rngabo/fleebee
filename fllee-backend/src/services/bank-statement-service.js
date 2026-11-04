@@ -120,8 +120,8 @@ async function markUnregisteredDepositors(body) {
 }
 
 async function listRegisteredBikers() {
-  const bikers = await prisma.biker.findMany({ select: { id: true, name: true, firstName: true } });
-  const items = bikers.map((biker) => ({ id: biker.id, name: bikerDisplayName(biker) }))
+  const bikers = await prisma.biker.findMany({ select: { id: true, name: true, firstName: true, phoneNumber: true } });
+  const items = bikers.map((biker) => ({ id: biker.id, name: bikerDisplayName(biker), phone: String(biker.phoneNumber ?? "").trim() }))
     .filter((biker) => biker.name)
     .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
   return { statusCode: 200, body: { items } };

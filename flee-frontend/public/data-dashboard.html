@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fleebee Data Dashboard</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1626'/%3E%3Cpath d='M19 5L9.5 14.5M19 5l-5.5 14-2-6.5L5 10.5z' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/assets/css/styles.css">
+  <link rel="stylesheet" href="/assets/css/styles.css?v=9">
 </head>
 <body data-view="data-dashboard">
   <div class="app-shell">
@@ -122,7 +122,7 @@
       <header class="main-header">
         <div>
           <h1>Data Dashboard</h1>
-          <p class="header-sub">Review the latest calculated balances synchronized from the accounting Sheet.</p>
+          <p class="header-sub">Pick a month to see targets, payments and balances, calculated the same way as the accounting Sheet.</p>
         </div>
         <div class="header-actions">
           <span id="syncBadge" class="badge badge-warn">Loading sync</span>
@@ -146,41 +146,42 @@
         </div>
         <p id="pageNotice" class="notice page-notice"></p>
 
-        <section class="metric-grid data-metric-grid" aria-label="Accounting totals">
-          <article class="metric-card"><span>Monthly due</span><strong id="monthlyDueTotal">RWF 0</strong></article>
-          <article class="metric-card"><span>Paid this month</span><strong id="paidMonthTotal">RWF 0</strong></article>
-          <article class="metric-card"><span>Remaining this month</span><strong id="remainingTotal">RWF 0</strong></article>
-          <article class="metric-card"><span>Overall balance</span><strong id="overallBalanceTotal">RWF 0</strong></article>
+        <section class="panel month-picker-panel sheet-month-band">
+          <div class="month-picker">
+            <label for="monthSelect"><strong>Select a month to view balances:</strong></label>
+            <select id="monthSelect" class="biker-select month-select" aria-label="Month"></select>
+            <label for="asOfInput">Balances as of</label>
+            <input id="asOfInput" type="date">
+            <span class="mini-note">Month start <strong id="monthStartLabel">—</strong> · Month end <strong id="monthEndLabel">—</strong></span>
+          </div>
+        </section>
+
+        <section class="metric-grid data-metric-grid dash-cards" aria-label="Accounting totals">
+          <article class="metric-card tone-blue"><span>Monthly target</span><strong id="monthlyDueTotal">RWF 0</strong></article>
+          <article class="metric-card tone-green"><span>Paid in month</span><strong id="paidMonthTotal">RWF 0</strong></article>
+          <article class="metric-card tone-red"><span>Monthly shortfall</span><strong id="remainingTotal">RWF 0</strong></article>
+          <article class="metric-card tone-orange"><span>Overall balance</span><strong id="overallBalanceTotal">RWF 0</strong><small id="trackSummary" class="mini-note"></small></article>
         </section>
 
         <section class="panel">
           <div class="panel-head">
             <div>
-              <h2>Accounting dashboard</h2>
+              <h2 id="dashboardTitle">Accounting dashboard</h2>
               <p id="dashboardPeriod" class="mini-note">Waiting for the first synchronized dashboard snapshot.</p>
             </div>
             <a id="sourceSheetLink" class="table-action hidden" href="#" target="_blank" rel="noreferrer">Open source Sheet</a>
           </div>
           <div class="table-wrap">
-            <table class="data-table data-dashboard-table">
-              <thead><tr><th>Name</th><th>Plate</th><th>Batch</th><th>Monthly due</th><th>Paid in month</th><th>Remaining</th><th>Last payment</th><th>Paid by date</th><th>Due by date</th><th>Overall balance</th><th>Track</th><th>Note</th><th>Adjustment</th></tr></thead>
+            <table class="data-table data-dashboard-table sheet-style">
+              <thead>
+                <tr class="group-row"><th colspan="2" class="grp-rider">Rider</th><th colspan="6" class="grp-month" id="groupMonth">This month</th><th colspan="3" class="grp-date">To date</th><th colspan="2" class="grp-status">Follow-up</th></tr>
+                <tr>
+                  <th>Name</th><th>Batch</th><th>Monthly target</th><th class="th-paid">Paid in month</th><th class="col-credit">Credit brought forward</th><th class="col-credit">Credit carried forward</th><th class="th-short">Monthly shortfall after credit</th><th>Last payment</th>
+                  <th>Paid by date</th><th>Due by date</th><th>Overall balance</th><th>Track</th><th class="th-note">Note / adjustment</th>
+                </tr>
+              </thead>
               <tbody id="dataDashboardBody"><tr><td colspan="13">Loading...</td></tr></tbody>
-              <tfoot><tr><td colspan="3">TOTAL</td><td id="tableMonthlyDueTotal">RWF 0</td><td id="tablePaidMonthTotal">RWF 0</td><td id="tableBalanceTotal">RWF 0</td><td></td><td id="tablePaidByDateTotal">RWF 0</td><td id="tableDueByDateTotal">RWF 0</td><td id="tableOverallBalanceTotal">RWF 0</td><td colspan="3"></td></tr></tfoot>
-            </table>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Synchronization coverage</h2>
-              <p class="mini-note">Sheet records are linked to existing Fleebee bikers and bikes before anything new is created.</p>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead><tr><th>Person ID</th><th>Name</th><th>Plate</th><th>Phone</th><th>Source status</th><th>Match</th><th>Details</th></tr></thead>
-              <tbody id="dataMemberBody"><tr><td colspan="7">Loading...</td></tr></tbody>
+              <tfoot><tr><td colspan="2">TOTAL</td><td id="tableMonthlyDueTotal">RWF 0</td><td id="tablePaidMonthTotal">RWF 0</td><td class="col-credit" id="tableCreditInTotal">RWF 0</td><td class="col-credit" id="tableCreditOutTotal">RWF 0</td><td id="tableBalanceTotal">RWF 0</td><td></td><td id="tablePaidByDateTotal">RWF 0</td><td id="tableDueByDateTotal">RWF 0</td><td id="tableOverallBalanceTotal">0</td><td colspan="2"></td></tr></tfoot>
             </table>
           </div>
         </section>
@@ -189,6 +190,6 @@
   </div>
 
   <script src="/app-config.js"></script>
-  <script src="/assets/js/data-pages.js"></script>
+  <script src="/assets/js/data-pages.js?v=7"></script>
 </body>
 </html>

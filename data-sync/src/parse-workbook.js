@@ -151,13 +151,15 @@ function parseDashboard(rows, members) {
       totals = {
         totalMonthlyDueRwf: integer(row[2], 0),
         totalPaidInMonthRwf: integer(row[3], 0),
-        totalBalanceRwf: integer(row[4], 0),
-        totalPaidByDateRwf: integer(row[6], 0),
-        totalDueByDateRwf: integer(row[7], 0),
-        totalOverallBalanceRwf: integer(row[8], 0)
+        totalBalanceRwf: integer(row[6], 0),
+        totalPaidByDateRwf: integer(row[8], 0),
+        totalDueByDateRwf: integer(row[9], 0),
+        totalOverallBalanceRwf: integer(row[10], 0)
       };
       continue;
     }
+    // Columns: A name, B batch, C target, D paid, E credit in, F credit out, G shortfall,
+    // H last payment, I paid by date, J due by date, K overall balance, L track, M note, N adjustment, O adjustment note.
     const member = memberByName.get(normalizeName(sourceName));
     dashboardRows.push({
       sourcePersonId: member?.sourcePersonId || "",
@@ -165,15 +167,15 @@ function parseDashboard(rows, members) {
       batchCode: text(row[1]),
       monthlyDueRwf: integer(row[2], 0),
       paidInMonthRwf: integer(row[3], 0),
-      balanceRemainingRwf: integer(row[4], 0),
-      lastPaymentDate: isoDate(row[5]),
-      paidByDateRwf: integer(row[6], 0),
-      dueByDateRwf: integer(row[7], 0),
-      overallBalanceRwf: integer(row[8], 0),
-      trackStatus: text(row[9]),
-      note: text(row[10]),
-      adjustmentAmountRwf: integer(row[11]),
-      adjustmentNote: text(row[12]),
+      balanceRemainingRwf: integer(row[6], 0),
+      lastPaymentDate: isoDate(row[7]),
+      paidByDateRwf: integer(row[8], 0),
+      dueByDateRwf: integer(row[9], 0),
+      overallBalanceRwf: integer(row[10], 0),
+      trackStatus: text(row[11]),
+      note: text(row[12]),
+      adjustmentAmountRwf: integer(row[13]),
+      adjustmentNote: text(row[14]),
       sourceRowNumber: index + 3
     });
   }

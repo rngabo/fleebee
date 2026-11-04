@@ -2396,3 +2396,50 @@ The big recent wins were bundle automation, persistent ADB recovery on `.50`, ni
   errors. NOT verified: an actual write — the service account
   `fleebee-data-sync@fleebee.iam.gserviceaccount.com` only has viewer access
   (Google returns 403). Share the sheet with it as Editor.
+
+## 2026-11-04 — Biker phone shown under Validated
+
+- `GET /api/bank-statements/bikers` now returns each biker's `phone`; the Status
+  cell shows it as a `tel:` link under "Validated" once a biker is selected.
+
+## 2026-11-04 — Data Dashboard: month picker that mirrors the Google Sheet Dashboard
+
+- New `fllee-backend/src/services/dashboard-calculator.js` reproduces the sheet's
+  Dashboard/Monthly Summary formulas (target, paid in month, credit brought/
+  carried forward, shortfall, last payment, paid/due by date, overall balance,
+  OK/BEHIND) from synced Setup + Payments for any month. `GET /api/data/dashboard
+  ?month=YYYY-MM&date=YYYY-MM-DD` returns it (default: current month, as of today).
+- Page `/data-dashboard.html` now has a month selector, an "as of" date, the same
+  12 columns as the sheet plus Note and Adjustment, and a TOTAL row.
+- Verified against the live sheet for 2026-10: all 12 riders match except overall
+  balance of Nyamuvadongo Djasiri (app 170,000 vs sheet 166,000): the sheet has a
+  hand-typed `-4000` inside that row's formula (Dashboard!K10). Put such tweaks in
+  the Dashboard "Adjustment" column (N, note in O) so the app can import them.
+  375 Monthly Summary person-months also match.
+- Fixed the sync parser: Dashboard columns had shifted by two (credit columns),
+  so notes/adjustments/totals were mis-mapped; range now `Dashboard!A3:O500`.
+  `asInteger` no longer turns blank cells into 0. Parser test updated.
+- Hard-coded sheet exception reproduced: Shumbusho Josue's first month rounds weeks down.
+- Tests: `node --test test/dashboard-calculator.test.js` (fllee-backend). Local
+  docker DB was loaded from the sheet with the app's own import (read-only on Google).
+  Not deployed; on the home computer press Refresh once so notes/adjustments re-import.
+
+## 2026-11-04 — Compact, readable table rows
+
+- Dashboard, Payments and Bank Statements tables: single-line rows (nowrap, 7px
+  padding, vertical-centered), right-aligned tabular numbers, sticky first column
+  on the dashboard, long notes ellipsized with the full text in a tooltip, and
+  sync results shown as chips with the message in the tooltip. Fixed the Bank
+  Statements Amount alignment (was applied to the biker column).
+
+## 2026-11-04 — Dashboard restyled like the Google Sheet, no horizontal scroll
+
+- `/data-dashboard.html`: sheet colours (dark-blue header, green "Paid in month",
+  dark-red "Shortfall", green month band, orange BEHIND), group header row
+  (Rider / This month / To date / Follow-up), zebra rows, batch chips, a progress
+  bar behind "Paid in month", red shortfall and orange balance highlights, sticky
+  header and TOTAL row. Note and Adjustment merged into one truncating column.
+- Page uses the full width; all columns fit at 1920 and 1366 px (verified with
+  headless-Chrome screenshots against mock data). Under 1500 px the two
+  "Credit forward" columns are hidden; under 1320 px a scrollbar is allowed.
+- Removed the "Synchronization coverage" table.

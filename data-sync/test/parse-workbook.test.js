@@ -33,9 +33,9 @@ test("parses setup, payments, and dashboard values", () => {
       ["Month start", "", "2026-09-01"],
       ["Month end", "", "2026-09-30"],
       [],
-      ["Name", "Batch", "Monthly due (RWF)", "Paid in month (RWF)", "Balance remaining (RWF)", "Last payment date", "Paid by date (RWF)", "Due by date (RWF)", "Overall balance (RWF)", "Track"],
-      ["Sindikubwayo Jean Claude", "B-Jul-2026", 120000, 45000, 75000, "2026-09-13", 201000, 270000, 119000, "BEHIND", "Thursday 23", 50000, "support maintenance"],
-      ["TOTAL", "", 120000, 45000, 75000, "", 201000, 270000, 119000]
+      ["Name", "Batch", "Monthly target (RWF)", "Paid in month (RWF)", "Credit brought forward (RWF)", "Credit carried forward (RWF)", "Monthly shortfall after credit (RWF)", "Last payment date", "Paid by date (RWF)", "Due by date (RWF)", "Overall balance (RWF)", "Track"],
+      ["Sindikubwayo Jean Claude", "B-Jul-2026", 120000, 45000, 0, 0, 75000, "2026-09-13", 201000, 270000, 119000, "BEHIND", "Thursday 23", 50000, "support maintenance"],
+      ["TOTAL", "", 120000, 45000, 0, 0, 75000, "", 201000, 270000, 119000]
     ]
   };
 
@@ -45,6 +45,11 @@ test("parses setup, payments, and dashboard values", () => {
   assert.equal(parsed.members[0].extraChargesRwf, 50000);
   assert.equal(parsed.payments[0].sourcePersonId, "8");
   assert.equal(parsed.dashboard.rows[0].overallBalanceRwf, 119000);
+  assert.equal(parsed.dashboard.rows[0].balanceRemainingRwf, 75000);
+  assert.equal(parsed.dashboard.rows[0].note, "Thursday 23");
+  assert.equal(parsed.dashboard.rows[0].adjustmentAmountRwf, 50000);
+  assert.equal(parsed.dashboard.rows[0].adjustmentNote, "support maintenance");
+  assert.equal(parsed.dashboard.totals.totalOverallBalanceRwf, 119000);
   assert.equal(parsed.dashboard.totals.totalPaidInMonthRwf, 45000);
 });
 

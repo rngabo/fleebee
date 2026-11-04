@@ -1975,12 +1975,10 @@ a {
   font-size: .88rem;
 }
 
-.bank-statement-table td:nth-child(3),
-.bank-statement-table th:nth-child(3) {
-  text-align: right;
-}
-
-.bank-statement-table tfoot td:nth-child(3) {
+/* Amount column (4th) is right-aligned; the 3rd is the biker select. */
+.bank-statement-table td:nth-child(4),
+.bank-statement-table th:nth-child(4),
+.bank-statement-table tfoot td:nth-child(4) {
   text-align: right;
 }
 
@@ -2100,4 +2098,400 @@ a {
 
 .sync-error {
   color: #b42318;
+}
+
+.month-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+}
+
+.month-select {
+  width: auto;
+  min-width: 190px;
+}
+
+.month-picker input[type="date"] {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+
+
+/* ---------- Compact, readable data rows ---------- */
+
+.data-dashboard-table,
+.data-payments-table,
+.bank-statement-table {
+  font-size: 0.85rem;
+}
+
+.data-dashboard-table th,
+.data-dashboard-table td,
+.data-payments-table td,
+.bank-statement-table td {
+  padding: 7px 12px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.data-dashboard-table th {
+  white-space: normal;
+  vertical-align: bottom;
+  line-height: 1.25;
+  min-width: 92px;
+}
+
+.data-dashboard-table td:nth-child(n+3):nth-child(-n+11),
+.data-dashboard-table th:nth-child(n+3):nth-child(-n+11),
+.data-dashboard-table tfoot td:nth-child(n+3):nth-child(-n+11) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-dashboard-table td:nth-child(8),
+.data-dashboard-table th:nth-child(8) {
+  text-align: left;
+}
+
+.data-dashboard-table {
+  min-width: 1500px;
+}
+
+.data-dashboard-table td:first-child,
+.data-dashboard-table th:first-child,
+.data-dashboard-table tfoot td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 210px;
+  background: var(--surface);
+  box-shadow: 1px 0 0 var(--line);
+}
+
+.data-dashboard-table th:first-child,
+.data-dashboard-table tfoot td:first-child {
+  background: #f4f6f9;
+}
+
+.data-dashboard-table tbody tr:hover td:first-child {
+  background: #fafbfd;
+}
+
+.data-dashboard-table .table-cell-muted,
+.data-table .inline-muted {
+  margin-left: 6px;
+  font-size: 0.78rem;
+}
+
+.data-dashboard-table td.cell-note {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bank-statement-table .mini-note {
+  display: inline;
+  margin: 0 0 0 8px;
+  font-size: 0.78rem;
+}
+
+.bank-statement-table .sync-error {
+  display: block;
+  margin: 3px 0 0;
+  max-width: 240px;
+  white-space: normal;
+}
+
+.bank-statement-table .biker-select {
+  min-width: 210px;
+  padding: 5px 8px;
+}
+
+.bank-statement-table .ghost-button {
+  padding: 4px 12px;
+  min-height: 0;
+}
+
+/* ---------- Dashboard: Google-Sheet-inspired design ---------- */
+
+.sheet-month-band {
+  border: 0;
+  background: #d9ead3;
+  box-shadow: inset 4px 0 0 #38761d;
+}
+
+.sheet-month-band .month-picker strong {
+  color: #1f4e79;
+}
+
+.sheet-month-band .month-select,
+.sheet-month-band input[type="date"] {
+  border-color: #38761d;
+  background: #fffbe0;
+  color: #0b2e6b;
+  font-weight: 700;
+}
+
+.dash-cards .metric-card {
+  border-top: 4px solid var(--line);
+}
+
+.dash-cards .tone-blue { border-top-color: #1f4e79; }
+.dash-cards .tone-green { border-top-color: #38761d; }
+.dash-cards .tone-red { border-top-color: #980000; }
+.dash-cards .tone-orange { border-top-color: #ff9900; }
+.dash-cards .tone-blue strong { color: #1f4e79; }
+.dash-cards .tone-green strong { color: #38761d; }
+.dash-cards .tone-red strong { color: #980000; }
+.dash-cards .tone-orange strong { color: #b36b00; }
+
+.sheet-style {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-wrap:has(.sheet-style) {
+  max-height: 72vh;
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+.sheet-style thead th {
+  background: #1f4e79;
+  color: #fff;
+  text-align: center;
+  border-bottom: 1px solid #163a5a;
+  border-right: 1px solid rgba(255, 255, 255, .16);
+  letter-spacing: .03em;
+  text-transform: none;
+  font-size: .76rem;
+}
+
+.sheet-style thead tr.group-row th {
+  top: 0;
+  height: 30px;
+  padding: 5px 12px;
+  background: #163a5a;
+  font-size: .68rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  text-align: center !important;
+}
+
+.sheet-style thead tr:nth-child(2) th {
+  top: 30px;
+}
+
+.sheet-style thead tr.group-row th.grp-month { background: #2b6aa3; }
+.sheet-style thead tr.group-row th.grp-date { background: #4a7c3a; }
+.sheet-style thead tr.group-row th.grp-status { background: #6b5b95; }
+
+.sheet-style thead th.th-paid { background: #38761d; }
+.sheet-style thead th.th-short { background: #980000; }
+
+.sheet-style thead th:first-child {
+  text-align: left;
+}
+
+.sheet-style tbody td {
+  border-bottom: 1px solid #e6eaf0;
+  border-right: 1px solid #f0f2f6;
+}
+
+.sheet-style tbody tr:nth-child(even) td {
+  background: #f6f9fd;
+}
+
+.sheet-style tbody tr:hover td {
+  background: #e8f0fb;
+}
+
+.sheet-style tbody tr.row-behind td:first-child {
+  box-shadow: inset 4px 0 0 #ff9900, 1px 0 0 var(--line);
+}
+
+.sheet-style tbody tr.row-ok td:first-child {
+  box-shadow: inset 4px 0 0 #38761d, 1px 0 0 var(--line);
+}
+
+.sheet-style tbody tr:nth-child(even) td:first-child { background: #f6f9fd; }
+.sheet-style tbody tr:hover td:first-child { background: #e8f0fb; }
+
+.sheet-style td.is-zero {
+  color: #aab2bf;
+}
+
+/* Paid in month: a bar behind the number shows how much of the target is covered. */
+.sheet-style td.cell-paid {
+  background-image: linear-gradient(90deg, rgba(56, 118, 29, .22) var(--pct), transparent var(--pct));
+  color: #27571a;
+  font-weight: 600;
+}
+
+.sheet-style td.cell-paid.is-zero {
+  color: #aab2bf;
+  font-weight: 400;
+}
+
+.sheet-style td.cell-short.is-short {
+  background-color: #fde8e8;
+  color: #980000;
+  font-weight: 700;
+}
+
+.sheet-style td.cell-balance {
+  font-weight: 700;
+}
+
+.sheet-style td.bal-bad {
+  background-color: #fff1dc;
+  color: #a85a00;
+}
+
+.sheet-style td.bal-good {
+  color: #27571a;
+}
+
+.batch-chip {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: .74rem;
+  font-weight: 700;
+}
+
+.batch-chip.tone-0 { background: #dbe8f7; color: #1f4e79; }
+.batch-chip.tone-1 { background: #e4f1dc; color: #2f6a17; }
+.batch-chip.tone-2 { background: #efe3f6; color: #6b2f8a; }
+.batch-chip.tone-3 { background: #fdebd2; color: #96560a; }
+.batch-chip.tone-4 { background: #d9f0ef; color: #0f6a66; }
+.batch-chip.tone-5 { background: #f9dde3; color: #9a2a45; }
+
+.track-chip {
+  display: inline-block;
+  min-width: 68px;
+  padding: 3px 10px;
+  border-radius: 5px;
+  text-align: center;
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+}
+
+.track-chip.ok { background: #d9ead3; color: #27571a; }
+.track-chip.behind { background: #ff9900; color: #fff; }
+
+.sheet-style tfoot td {
+  position: sticky;
+  bottom: 0;
+  background: #d9e1f2;
+  color: #1f4e79;
+  font-weight: 800;
+  border-top: 2px solid #1f4e79;
+}
+
+.sheet-style tfoot td:first-child {
+  z-index: 3;
+}
+
+
+/* Dashboard uses the full page width so every column fits without a horizontal scrollbar. */
+body[data-view="data-dashboard"] .content {
+  max-width: none;
+  padding: 20px 20px 40px;
+}
+
+body[data-view="data-dashboard"] .table-wrap {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body[data-view="data-dashboard"] .sheet-style {
+  width: 100%;
+  min-width: 0;
+  font-size: .82rem;
+}
+
+body[data-view="data-dashboard"] .sheet-style th,
+body[data-view="data-dashboard"] .sheet-style td {
+  padding: 7px 8px;
+}
+
+body[data-view="data-dashboard"] .sheet-style thead th {
+  white-space: normal;
+  line-height: 1.2;
+  font-size: .72rem;
+  background-color: #1f4e79;
+}
+
+body[data-view="data-dashboard"] .sheet-style thead th.th-paid { background-color: #38761d; }
+body[data-view="data-dashboard"] .sheet-style thead th.th-short { background-color: #980000; }
+body[data-view="data-dashboard"] .sheet-style thead tr.group-row th { background-color: #163a5a; }
+body[data-view="data-dashboard"] .sheet-style thead tr.group-row th.grp-month { background-color: #2b6aa3; }
+body[data-view="data-dashboard"] .sheet-style thead tr.group-row th.grp-date { background-color: #4a7c3a; }
+body[data-view="data-dashboard"] .sheet-style thead tr.group-row th.grp-status { background-color: #6b5b95; }
+
+/* Rows stay on one line; the note column takes whatever width is left and truncates. */
+body[data-view="data-dashboard"] .sheet-style td:first-child,
+body[data-view="data-dashboard"] .sheet-style th:first-child {
+  position: static;
+  min-width: 0;
+}
+
+body[data-view="data-dashboard"] .sheet-style thead th:first-child {
+  position: sticky;
+  text-align: left;
+}
+
+body[data-view="data-dashboard"] .sheet-style th.th-note {
+  width: 20%;
+}
+
+body[data-view="data-dashboard"] .sheet-style td.cell-note {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-size: .78rem;
+}
+
+.adj-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: #fff1dc;
+  color: #a85a00;
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+body[data-view="data-dashboard"] .sheet-style .table-cell-muted {
+  margin-left: 5px;
+  font-size: .72rem;
+}
+
+@media (max-width: 1500px) {
+  body[data-view="data-dashboard"] .sheet-style .col-credit { display: none; }
+  body[data-view="data-dashboard"] .app-shell { grid-template-columns: 226px minmax(0, 1fr); }
+  body[data-view="data-dashboard"] .content { padding: 14px 12px 32px; }
+  body[data-view="data-dashboard"] .panel { padding-left: 12px; padding-right: 12px; }
+  body[data-view="data-dashboard"] .sheet-style th.th-note { width: auto; min-width: 90px; }
+  body[data-view="data-dashboard"] .batch-chip { padding: 1px 6px; font-size: .68rem; }
+  body[data-view="data-dashboard"] .sheet-style { font-size: .76rem; }
+  body[data-view="data-dashboard"] .sheet-style th,
+  body[data-view="data-dashboard"] .sheet-style td { padding: 6px 5px; }
+  body[data-view="data-dashboard"] .sheet-style td:first-child .table-cell-muted { display: none; }
+}
+
+@media (max-width: 1320px) {
+  body[data-view="data-dashboard"] .table-wrap { overflow-x: auto; }
+  body[data-view="data-dashboard"] .sheet-style { min-width: 1000px; }
 }

@@ -562,10 +562,18 @@ function createAppServer() {
       }
 
       if (req.method === "GET" && url.pathname === "/api/data/dashboard") {
-        sendJson(res, 200, {
-          ...await getDataDashboard(),
-          runner: getDataSyncRunnerState()
-        });
+        try {
+          sendJson(res, 200, {
+            ...await getDataDashboard({
+              month: url.searchParams.get("month"),
+              date: url.searchParams.get("date")
+            }),
+            runner: getDataSyncRunnerState()
+          });
+        } catch (error) {
+          if (error.statusCode !== 400) throw error;
+          sendJson(res, 400, { error: error.message });
+        }
         return;
       }
 

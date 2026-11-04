@@ -24,6 +24,10 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function formatNumber(value) {
+  return (Number(value) || 0).toLocaleString("en-US");
+}
+
 function formatRwf(value) {
   return `RWF ${(Number(value) || 0).toLocaleString("en-US")}`;
 }
@@ -88,23 +92,89 @@ function renderSyncState(payload) {
     : "Not synchronized yet";
 }
 
+let selection = { month: "", date: "" };
+
+function formatDay(value) {
+  if (!value) return "—";
+  const [year, month, day] = String(value).slice(0, 10).split("-");
+  return day ? `${day}/${month}/${year}` : "—";
+}
+
+function monthLabel(month) {
+  const [year, number] = month.split("-").map(Number);
+  return new Date(Date.UTC(year, number - 1, 1)).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+const BATCH_TONES = 6;
+
+function batchTone(batch) {
+  let hash = 0;
+  for (const char of String(batch)) hash = (hash * 31 + char.charCodeAt(0)) % 997;
+  return hash % BATCH_TONES;
+}
+
+function renderDashboardRow(row) {
+  const rwf = (value) => escapeHtml(formatNumber(value));
+  const zero = (value) => (Number(value) === 0 ? " is-zero" : "");
+  const percent = row.monthlyTarget > 0
+    ? Math.min(100, Math.round((row.paidInMonth / row.monthlyTarget) * 100))
+    : (row.paidInMonth > 0 ? 100 : 0);
+  const behind = row.track === "BEHIND";
+  const adjustment = Number(row.adjustmentAmount) || 0;
+  const adjustmentLabel = adjustment ? `${adjustment > 0 ? "+" : ""}${formatNumber(adjustment)}${row.adjustmentNote ? ` ${row.adjustmentNote}` : ""}` : "";
+  const adjustmentTag = adjustment ? `<span class="adj-tag">${escapeHtml(adjustmentLabel)}</span>` : "";
+  const noteTitle = [row.note, adjustment ? `Adjustment: ${adjustmentLabel}` : ""].filter(Boolean).join(" — ");
+  return `
+      <tr class="${behind ? "row-behind" : "row-ok"}">
+        <td><span class="table-cell-strong">${escapeHtml(row.name)}</span>${row.plate ? `<span class="table-cell-muted">${escapeHtml(row.plate)}</span>` : ""}</td>
+        <td>${row.batch ? `<span class="batch-chip tone-${batchTone(row.batch)}">${escapeHtml(row.batch)}</span>` : "—"}</td>
+        <td${zero(row.monthlyTarget) ? ' class="is-zero"' : ""}>${rwf(row.monthlyTarget)}</td>
+        <td class="cell-paid${zero(row.paidInMonth)}" style="--pct:${percent}%" title="${percent}% of the monthly target">${rwf(row.paidInMonth)}</td>
+        <td class="col-credit${zero(row.creditBroughtForward)}">${rwf(row.creditBroughtForward)}</td>
+        <td class="col-credit${zero(row.creditCarriedForward)}">${rwf(row.creditCarriedForward)}</td>
+        <td class="cell-short${row.shortfall > 0 ? " is-short" : " is-zero"}">${rwf(row.shortfall)}</td>
+        <td>${escapeHtml(formatDay(row.lastPaymentDate))}</td>
+        <td>${rwf(row.paidByDate)}</td>
+        <td>${rwf(row.dueByDate)}</td>
+        <td class="cell-balance ${row.overallBalance > 0 ? "bal-bad" : "bal-good"}">${rwf(row.overallBalance)}</td>
+        <td><span class="track-chip ${behind ? "behind" : "ok"}">${escapeHtml(row.track)}</span></td>
+        <td class="cell-note" title="${escapeHtml(noteTitle)}">${adjustmentTag}${escapeHtml(row.note || (adjustment ? "" : "—"))}</td>
+      </tr>`;
+}
+
 function renderDashboard(payload) {
-  const snapshot = payload.snapshot;
-  const rows = snapshot?.rows || [];
-  const totals = snapshot?.totals || {};
-  $("monthlyDueTotal").textContent = formatRwf(totals.totalMonthlyDueRwf);
-  $("paidMonthTotal").textContent = formatRwf(totals.totalPaidInMonthRwf);
-  $("remainingTotal").textContent = formatRwf(totals.totalBalanceRwf);
-  $("overallBalanceTotal").textContent = formatRwf(totals.totalOverallBalanceRwf);
-  $("tableMonthlyDueTotal").textContent = formatRwf(totals.totalMonthlyDueRwf);
-  $("tablePaidMonthTotal").textContent = formatRwf(totals.totalPaidInMonthRwf);
-  $("tableBalanceTotal").textContent = formatRwf(totals.totalBalanceRwf);
-  $("tablePaidByDateTotal").textContent = formatRwf(totals.totalPaidByDateRwf);
-  $("tableDueByDateTotal").textContent = formatRwf(totals.totalDueByDateRwf);
-  $("tableOverallBalanceTotal").textContent = formatRwf(totals.totalOverallBalanceRwf);
-  $("dashboardPeriod").textContent = snapshot
-    ? `Snapshot for ${formatDate(snapshot.monthStart)} to ${formatDate(snapshot.monthEnd)}; selected date ${formatDate(snapshot.selectedDate)}.`
-    : "Waiting for the first synchronized dashboard snapshot.";
+  const dashboard = payload.dashboard;
+  const rows = dashboard?.rows || [];
+  const totals = dashboard?.totals || {};
+  selection = { month: dashboard?.month || selection.month, date: dashboard?.asOfDate || "" };
+
+  const monthSelect = $("monthSelect");
+  const months = dashboard?.availableMonths || [];
+  monthSelect.innerHTML = months.map((month) => `<option value="${month}"${month === selection.month ? " selected" : ""}>${monthLabel(month)}</option>`).join("");
+  const asOf = $("asOfInput");
+  asOf.min = dashboard?.monthStart || "";
+  asOf.max = dashboard?.monthEnd || "";
+  asOf.value = dashboard?.asOfDate || "";
+  $("monthStartLabel").textContent = formatDay(dashboard?.monthStart);
+  $("monthEndLabel").textContent = formatDay(dashboard?.monthEnd);
+
+  $("monthlyDueTotal").textContent = formatRwf(totals.monthlyTarget);
+  $("paidMonthTotal").textContent = formatRwf(totals.paidInMonth);
+  $("remainingTotal").textContent = formatRwf(totals.shortfall);
+  $("overallBalanceTotal").textContent = formatRwf(totals.overallBalance);
+  $("trackSummary").textContent = rows.length ? `${totals.behindCount} behind · ${totals.okCount} on track` : "";
+  $("tableMonthlyDueTotal").textContent = formatNumber(totals.monthlyTarget);
+  $("tablePaidMonthTotal").textContent = formatNumber(totals.paidInMonth);
+  $("tableCreditInTotal").textContent = formatNumber(totals.creditBroughtForward);
+  $("tableCreditOutTotal").textContent = formatNumber(totals.creditCarriedForward);
+  $("tableBalanceTotal").textContent = formatNumber(totals.shortfall);
+  $("tablePaidByDateTotal").textContent = formatNumber(totals.paidByDate);
+  $("tableDueByDateTotal").textContent = formatNumber(totals.dueByDate);
+  $("tableOverallBalanceTotal").textContent = formatNumber(totals.overallBalance);
+  $("dashboardTitle").textContent = dashboard ? `${monthLabel(dashboard.month)} — active riders` : "Accounting dashboard";
+  $("dashboardPeriod").textContent = dashboard
+    ? `Month ${formatDay(dashboard.monthStart)} to ${formatDay(dashboard.monthEnd)}; "paid by date" and "due by date" are counted up to ${formatDay(dashboard.asOfDate)}. All amounts are in RWF.`
+    : "Waiting for the first synchronized data.";
 
   const sourceLink = $("sourceSheetLink");
   if (payload.sourceUrl) {
@@ -113,37 +183,8 @@ function renderDashboard(payload) {
   }
 
   $("dataDashboardBody").innerHTML = rows.length
-    ? rows.map((row) => `
-      <tr>
-        <td><div class="table-cell-strong">${escapeHtml(row.sourceName)}</div></td>
-        <td>${escapeHtml(row.sourcePlate || "—")}</td>
-        <td>${escapeHtml(row.batchCode || "—")}</td>
-        <td>${escapeHtml(formatRwf(row.monthlyDueRwf))}</td>
-        <td>${escapeHtml(formatRwf(row.paidInMonthRwf))}</td>
-        <td>${escapeHtml(formatRwf(row.balanceRemainingRwf))}</td>
-        <td>${escapeHtml(formatDate(row.lastPaymentDate))}</td>
-        <td>${escapeHtml(formatRwf(row.paidByDateRwf))}</td>
-        <td>${escapeHtml(formatRwf(row.dueByDateRwf))}</td>
-        <td><div class="table-cell-strong">${escapeHtml(formatRwf(row.overallBalanceRwf))}</div></td>
-        <td><span class="status-chip ${String(row.trackStatus).toLowerCase() === "behind" ? "failed" : "sent"}">${escapeHtml(row.trackStatus || "—")}</span></td>
-        <td>${escapeHtml(row.note || "—")}</td>
-        <td>${row.adjustmentAmountRwf == null ? "—" : escapeHtml(formatRwf(row.adjustmentAmountRwf))}${row.adjustmentNote ? `<div class="table-cell-muted">${escapeHtml(row.adjustmentNote)}</div>` : ""}</td>
-      </tr>`).join("")
-    : '<tr><td colspan="13" class="empty-table">No synchronized Dashboard rows yet.</td></tr>';
-
-  const members = payload.members || [];
-  $("dataMemberBody").innerHTML = members.length
-    ? members.map((member) => `
-      <tr>
-        <td>${escapeHtml(member.sourcePersonId)}</td>
-        <td><div class="table-cell-strong">${escapeHtml(member.sourceName)}</div></td>
-        <td>${escapeHtml(member.sourcePlate || "—")}</td>
-        <td>${escapeHtml(member.sourcePhone || "—")}</td>
-        <td>${escapeHtml(member.sourceStatus || "—")}</td>
-        <td><span class="status-chip ${member.matchStatus === "CONFLICT" ? "failed" : member.matchStatus === "HISTORICAL" ? "pending" : "sent"}">${escapeHtml(member.matchStatus)}</span></td>
-        <td>${escapeHtml(member.matchNote || "—")}</td>
-      </tr>`).join("")
-    : '<tr><td colspan="7" class="empty-table">No synchronized Setup rows yet.</td></tr>';
+    ? rows.map(renderDashboardRow).join("")
+    : '<tr><td colspan="13" class="empty-table">No synchronized riders yet. Use Refresh to import them from the Sheet.</td></tr>';
 
   $("intervalInput").value = payload.schedule?.intervalDays || 2;
 }
@@ -170,7 +211,7 @@ function renderPayments(payload) {
         <td>${escapeHtml(item.sourcePlate || "—")}</td>
         <td><div class="table-cell-strong">${escapeHtml(formatRwf(item.amountRwf))}</div></td>
         <td>${escapeHtml(item.paymentMethod || "—")}</td>
-        <td>${escapeHtml(item.referenceNote || "—")}</td>
+        <td class="cell-note" title="${escapeHtml(item.referenceNote || "")}">${escapeHtml(item.referenceNote || "—")}</td>
         <td>${escapeHtml(item.enteredBy || "—")}</td>
       </tr>`).join("")
     : '<tr><td colspan="7" class="empty-table">No payments match this filter.</td></tr>';
@@ -188,7 +229,10 @@ async function load({ quiet = false } = {}) {
   isLoading = true;
   if (!quiet) setNotice("Loading synchronized accounting data…");
   try {
-    const endpoint = view === "data-payments" ? "/api/data/payments" : "/api/data/dashboard";
+    const query = view === "data-dashboard" && selection.month
+      ? `?month=${encodeURIComponent(selection.month)}${selection.date ? `&date=${encodeURIComponent(selection.date)}` : ""}`
+      : "";
+    const endpoint = view === "data-payments" ? "/api/data/payments" : `/api/data/dashboard${query}`;
     const payload = await fetchJson(endpoint);
     render(payload);
     if (!quiet) {
@@ -283,6 +327,21 @@ $("logoutButton").addEventListener("click", async () => {
   window.location.assign("/login/");
 });
 if ($("saveIntervalButton")) $("saveIntervalButton").addEventListener("click", saveInterval);
+if ($("monthSelect")) {
+  const narrow = window.matchMedia("(max-width: 1500px)");
+  const syncGroupSpan = () => { $("groupMonth").colSpan = narrow.matches ? 4 : 6; };
+  narrow.addEventListener("change", syncGroupSpan);
+  syncGroupSpan();
+  $("monthSelect").addEventListener("change", () => {
+    selection = { month: $("monthSelect").value, date: "" };
+    load().catch(() => {});
+  });
+  $("asOfInput").addEventListener("change", () => {
+    if (!$("asOfInput").value) return;
+    selection.date = $("asOfInput").value;
+    load().catch(() => {});
+  });
+}
 if (paymentFilter) paymentFilter.addEventListener("input", () => renderPayments(latestPayload || { items: [] }));
 
 load()

@@ -113,8 +113,8 @@ function bikerOptions(selectedId) {
 
 function syncCell(item) {
   const { state, message } = item.sync;
-  if (state === "synced") return `<span class="status-chip sent">Synced</span><div class="mini-note">${escapeHtml(message)}</div>`;
-  if (state === "duplicate") return `<span class="status-chip pending">Already in sheet</span><div class="mini-note">${escapeHtml(message)}</div>`;
+  if (state === "synced") return `<span class="status-chip sent" title="${escapeHtml(message)}">Synced</span>`;
+  if (state === "duplicate") return `<span class="status-chip pending" title="${escapeHtml(message)}">Already in sheet</span>`;
   const busy = state === "syncing";
   const error = state === "error" ? `<div class="mini-note sync-error">${escapeHtml(message)}</div>` : "";
   return `<button class="ghost-button" type="button" data-sync${item.bikerId && !busy ? "" : " disabled"}>${busy ? "Syncing…" : state === "error" ? "Retry" : "Sync"}</button>${error}`;
@@ -123,7 +123,9 @@ function syncCell(item) {
 function statusCell(item) {
   const review = isReview(item);
   const note = review && item.reviewReason === "not-registered-biker" ? '<div class="mini-note">Not a registered biker</div>' : "";
-  return `<span class="status-chip ${review ? "failed" : "sent"}">${review ? "Review required" : "Validated"}</span>${note}`;
+  const phone = !review && item.bikerId ? registeredBikers.find((biker) => biker.id === item.bikerId)?.phone : "";
+  const call = phone ? `<div class="mini-note">📞 <a href="tel:${escapeHtml(phone.replace(/[^\d+]/g, ""))}">${escapeHtml(phone)}</a></div>` : "";
+  return `<span class="status-chip ${review ? "failed" : "sent"}">${review ? "Review required" : "Validated"}</span>${note}${call}`;
 }
 
 function renderSummary(description) {

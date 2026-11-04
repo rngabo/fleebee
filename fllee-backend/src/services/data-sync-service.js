@@ -1,6 +1,7 @@
 const { randomUUID } = require("node:crypto");
 
 const { prisma } = require("../lib/prisma");
+const { calculateDashboard } = require("./dashboard-calculator");
 
 const INTERVAL_SETTING_ID = "data_sync_interval_days";
 const DEFAULT_INTERVAL_DAYS = 2;
@@ -24,6 +25,7 @@ function normalizePhone(value) {
 }
 
 function asInteger(value, fallback = null) {
+  if (value === null || value === undefined || value === "") return fallback;
   const parsed = Number(value);
   return Number.isInteger(parsed) ? parsed : fallback;
 }
@@ -554,22 +556,67 @@ async function latestDataSyncRun() {
   return prisma.dataSyncRun.findFirst({ orderBy: { startedAt: "desc" } });
 }
 
-async function getDataDashboard() {
-  const [latestRun, schedule, members, snapshot] = await Promise.all([
+function kigaliToday() {
+  return new Date(Date.now() + 2 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+function listMonths(firstMonth, lastMonth) {
+  const months = [];
+  let [year, month] = firstMonth.split("-").map(Number);
+  const [lastYear, lastMonthNumber] = lastMonth.split("-").map(Number);
+  while (year < lastYear || (year === lastYear && month <= lastMonthNumber)) {
+    months.push(`${year}-${String(month).padStart(2, "0")}`);
+    month += 1;
+    if (month > 12) { month = 1; year += 1; }
+  }
+  return months;
+}
+
+async function getDataDashboard({ month, date } = {}) {
+  const [latestRun, schedule, members, payments, snapshot] = await Promise.all([
     latestDataSyncRun(),
     getDataSyncSchedule(),
     prisma.dataMember.findMany({ where: { isPresent: true }, orderBy: { sourceRowNumber: "asc" } }),
+    prisma.dataPayment.findMany({
+      where: { isPresent: true },
+      select: { dataMemberId: true, paymentDate: true, amountRwf: true }
+    }),
     prisma.dataDashboardSnapshot.findFirst({
-      include: {
-        rows: {
-          include: { dataMember: true },
-          orderBy: { sourceRowNumber: "asc" }
-        },
-        run: true
-      },
+      include: { rows: true },
       orderBy: { createdAt: "desc" }
     })
   ]);
+
+  // Notes and manual adjustments are typed by hand into the sheet's Dashboard tab; carry them over.
+  const adjustments = new Map();
+  for (const row of snapshot?.rows || []) {
+    if (!row.dataMemberId) continue;
+    adjustments.set(row.dataMemberId, {
+      amount: row.adjustmentAmountRwf,
+      note: row.adjustmentNote,
+      rowNote: row.note
+    });
+  }
+
+  const today = kigaliToday();
+  const selectedMonth = /^\d{4}-\d{2}$/.test(String(month || "")) ? month : today.slice(0, 7);
+  const asOfDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date || ""))
+    ? date
+    : (selectedMonth === today.slice(0, 7) ? today : undefined);
+
+  let dashboard;
+  try {
+    dashboard = calculateDashboard({ members, payments, month: selectedMonth, asOfDate, adjustments });
+  } catch (error) {
+    const invalid = new Error(error.message);
+    invalid.statusCode = 400;
+    throw invalid;
+  }
+
+  const startMonths = members.filter((member) => member.startDate).map((member) => member.startDate.toISOString().slice(0, 7)).sort();
+  const lastListed = [today.slice(0, 7), selectedMonth].sort().pop();
+  dashboard.availableMonths = startMonths.length ? listMonths(startMonths[0], lastListed).reverse() : [selectedMonth];
+
   return {
     latestRun: serializeRun(latestRun),
     schedule,
@@ -585,36 +632,7 @@ async function getDataDashboard() {
       matchStatus: member.matchStatus,
       matchNote: member.matchNote
     })),
-    snapshot: snapshot ? {
-      selectedDate: snapshot.selectedDate?.toISOString() || null,
-      monthStart: snapshot.monthStart?.toISOString() || null,
-      monthEnd: snapshot.monthEnd?.toISOString() || null,
-      totals: {
-        totalMonthlyDueRwf: snapshot.totalMonthlyDueRwf,
-        totalPaidInMonthRwf: snapshot.totalPaidInMonthRwf,
-        totalBalanceRwf: snapshot.totalBalanceRwf,
-        totalPaidByDateRwf: snapshot.totalPaidByDateRwf,
-        totalDueByDateRwf: snapshot.totalDueByDateRwf,
-        totalOverallBalanceRwf: snapshot.totalOverallBalanceRwf
-      },
-      rows: snapshot.rows.map((row) => ({
-        id: row.id,
-        sourceName: row.sourceName,
-        sourcePlate: row.dataMember?.sourcePlate || "",
-        batchCode: row.batchCode,
-        monthlyDueRwf: row.monthlyDueRwf,
-        paidInMonthRwf: row.paidInMonthRwf,
-        balanceRemainingRwf: row.balanceRemainingRwf,
-        lastPaymentDate: row.lastPaymentDate?.toISOString() || null,
-        paidByDateRwf: row.paidByDateRwf,
-        dueByDateRwf: row.dueByDateRwf,
-        overallBalanceRwf: row.overallBalanceRwf,
-        trackStatus: row.trackStatus,
-        note: row.note,
-        adjustmentAmountRwf: row.adjustmentAmountRwf,
-        adjustmentNote: row.adjustmentNote
-      }))
-    } : null
+    dashboard
   };
 }
 

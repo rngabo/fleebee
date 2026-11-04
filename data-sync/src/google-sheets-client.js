@@ -62,7 +62,7 @@ async function readAccountingWorkbook({
   const ranges = [
     "Setup!A8:W200",
     "Payments!A1:F5000",
-    "Dashboard!A3:M500"
+    "Dashboard!A3:O500"
   ];
   const params = new URLSearchParams({
     majorDimension: "ROWS",
