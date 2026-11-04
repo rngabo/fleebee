@@ -58,6 +58,44 @@ function monthlyDue(member, k) {
   return regular;
 }
 
+// A payment can say which month it is for in its Reference/Notes: "Synced from app · for 2026-10" or, typed by
+// hand in the sheet, "for 2026-10". Without that, a payment belongs to the month of its date.
+const FOR_MONTH_NOTE = /\bfor\s+(\d{4})-(\d{2})\b/i;
+
+function paymentForMonth(payment) {
+  const match = FOR_MONTH_NOTE.exec(String(payment.referenceNote || ""));
+  if (match && Number(match[2]) >= 1 && Number(match[2]) <= 12) return `${match[1]}-${match[2]}`;
+  return isoDate(utcDay(payment.paymentDate)).slice(0, 7);
+}
+
+/**
+ * The selected month seen by "the month a payment is for": payments dated later but tagged for this month
+ * count here as late; payments dated in this month but tagged for an earlier month do not. Dates never change.
+ */
+function forMonthView(payments, monthKey, monthEnd, target, creditBroughtForward) {
+  const mine = payments.filter((payment) => paymentForMonth(payment) === monthKey);
+  const sum = (items) => items.reduce((total, payment) => total + payment.amountRwf, 0);
+  const late = mine.filter((payment) => utcDay(payment.paymentDate) > monthEnd);
+  const lateByDay = new Map();
+  for (const payment of late) {
+    const day = isoDate(utcDay(payment.paymentDate));
+    lateByDay.set(day, (lateByDay.get(day) || 0) + payment.amountRwf);
+  }
+  const paid = sum(mine);
+  const lastDay = mine.length ? Math.max(...mine.map((payment) => utcDay(payment.paymentDate))) : null;
+  const settled = target > 0 && lastDay !== null && paid + creditBroughtForward >= target;
+  return {
+    paid,
+    onTime: paid - sum(late),
+    late: sum(late),
+    lateDetails: [...lateByDay].map(([date, amount]) => ({ date, amount })),
+    shortfall: Math.max(0, target - paid - creditBroughtForward),
+    lastPaymentDate: lastDay === null ? null : isoDate(lastDay),
+    settledOn: settled && lastDay !== null ? isoDate(lastDay) : null,
+    daysLate: settled && lastDay > monthEnd ? Math.round((lastDay - monthEnd) / DAY_MS) : 0
+  };
+}
+
 function weeklyRoundingCorrection(member, start) {
   const remainingDays = (monthEndOf(start) - start) / DAY_MS + 1;
   return member.weeklyDueRwf * (sheetRound(remainingDays / 7) - Math.floor(remainingDays / 7));
@@ -137,6 +175,7 @@ function buildRow(member, payments, monthStart, monthEnd, asOf, adjustment) {
     dueByDate,
     overallBalance,
     track: overallBalance === 0 ? "OK" : "BEHIND",
+    forMonth: forMonthView(payments, isoDate(monthStart).slice(0, 7), monthEnd, target, creditBroughtForward),
     adjustmentAmount: adjustment?.amount ?? null,
     adjustmentNote: adjustment?.note || "",
     note: adjustment?.rowNote || ""
@@ -154,6 +193,11 @@ function buildTotals(rows) {
     paidByDate: total("paidByDate"),
     dueByDate: total("dueByDate"),
     overallBalance: total("overallBalance"),
+    forMonth: {
+      paid: rows.reduce((sum, row) => sum + row.forMonth.paid, 0),
+      late: rows.reduce((sum, row) => sum + row.forMonth.late, 0),
+      shortfall: rows.reduce((sum, row) => sum + row.forMonth.shortfall, 0)
+    },
     behindCount: rows.filter((row) => row.track === "BEHIND").length,
     okCount: rows.filter((row) => row.track === "OK").length
   };
@@ -190,7 +234,10 @@ function calculateDashboard({ members, payments, month, asOfDate, adjustments = 
   const rows = members
     .filter((member) => String(member.sourceStatus).toLowerCase() === "active" && member.startDate)
     .sort((a, b) => (a.activeNumber ?? 9999) - (b.activeNumber ?? 9999))
-    .map((member) => buildRow(member, paymentsByMember.get(member.id) || [], monthStart, monthEnd, asOf, adjustments.get(member.id)));
+    .map((member) => {
+      const memberPayments = paymentsByMember.get(member.id) || [];
+      return buildRow(member, memberPayments, monthStart, monthEnd, asOf, adjustments.get(member.id));
+    });
 
   return {
     month,
@@ -202,4 +249,4 @@ function calculateDashboard({ members, payments, month, asOfDate, adjustments = 
   };
 }
 
-module.exports = { calculateDashboard, monthlyDue, normalizeName };
+module.exports = { calculateDashboard, monthlyDue, normalizeName, paymentForMonth };

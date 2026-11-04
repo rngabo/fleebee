@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.routes.aliases import router as aliases_router
 from app.api.routes.statements import router as statements_router
 from app.api.routes.transactions import router as transactions_router
 from app.core.config import get_settings
@@ -21,6 +22,7 @@ configure_logging()
 settings = get_settings()
 app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
 app.include_router(statements_router)
+app.include_router(aliases_router)
 app.include_router(transactions_router)
 
 

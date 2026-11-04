@@ -12,6 +12,12 @@ class StatementSummary(BaseModel):
 
     id: uuid.UUID
     bank_name: str
+    display_name: str | None = None
+    remaining_count: int | None = None
+    synced_count: int | None = None
+    skipped_count: int | None = None
+    completed_at: datetime | None = None
+    can_discard: bool | None = None
     account_holder_name: str | None
     account_number: str | None
     period_start: date | None
@@ -46,6 +52,21 @@ class UploadResponse(BaseModel):
     duplicate_count: int
     warnings: list[str]
     transactions: list[SimpleIncomingTransaction]
+
+
+class CompletedStatementResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    display_name: str
+    original_filename: str
+    period_start: date | None
+    period_end: date | None
+    entry_count: int
+    completed_at: datetime
+
+
+class CompletedStatementPage(BaseModel):
+    items: list[CompletedStatementResponse]
 
 
 class StatementPage(BaseModel):

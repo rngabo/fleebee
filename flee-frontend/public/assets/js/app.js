@@ -134,6 +134,7 @@ const state = {
   lastSuggestion: "",
   bundleDetailsOpen: false,
   modifyMode: false,
+  bikerStatusFilter: "all",
   selectedBikerIds: new Set(),
   editingBikerId: "",
   editingBatchId: "",
@@ -2328,6 +2329,55 @@ function renderRecipientBatchFlow() {
   }
 }
 
+function renderBikerStatusFilters() {
+  const container = $("bikerStatusFilters");
+  if (!container) {
+    return;
+  }
+  const count = (status) => state.bikers.filter((biker) => String(biker.status).toLowerCase() === status).length;
+  const options = [
+    ["all", "All", state.bikers.length],
+    ["active", "Active", count("active")],
+    ["inactive", "Inactive", count("inactive")]
+  ];
+  container.innerHTML = options.map(([key, label, total]) => `
+    <button type="button" class="filter-chip${state.bikerStatusFilter === key ? " active" : ""}" data-status-filter="${key}">${label} <span>${total}</span></button>
+  `).join("");
+}
+
+// The status chip is a button: one click switches Active <-> Inactive. Other flags stay as small text.
+function bikerStatusCell(biker) {
+  const active = String(biker.status).toLowerCase() !== "inactive";
+  const extras = bikerStatusSummary(biker).split(" | ").slice(1).join(" | ");
+  return `
+    <button type="button" class="status-chip ${active ? "sent" : "pending"} status-toggle" data-action="toggle-biker-status"
+      data-biker-id="${escapeHtml(biker.id)}" title="Click to make ${active ? "Inactive" : "Active"}">${active ? "Active" : "Inactive"}</button>
+    ${extras ? `<div class="table-cell-muted">${escapeHtml(extras)}</div>` : ""}
+  `;
+}
+
+async function toggleBikerStatus(bikerId) {
+  const biker = state.bikers.find((item) => item.id === bikerId);
+  if (!biker) {
+    return;
+  }
+  const next = String(biker.status).toLowerCase() === "inactive" ? "Active" : "Inactive";
+  if (next === "Inactive" && !window.confirm(`Make ${biker.name} inactive?\n\nInactive recipients are left out of manual and workflow SMS. You can switch them back at any time.`)) {
+    return;
+  }
+  try {
+    await fetchJson(`/api/bikers/${encodeURIComponent(biker.id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: next })
+    });
+    await loadAll();
+    setNotice(bikerNotice, `${biker.name} is now ${next}.`, "success");
+  } catch (error) {
+    setNotice(bikerNotice, error.message, "error");
+  }
+}
+
 function renderBikerTable() {
   if (!bikerTableBody) {
     return;
@@ -2358,16 +2408,29 @@ function renderBikerTable() {
     bulkDeleteButton.disabled = selectedCount === 0;
   }
 
+  renderBikerStatusFilters();
+
   if (state.bikers.length === 0) {
     bikerTableBody.innerHTML = `
       <tr>
-        <td colspan="6" class="empty-table">No recipients yet. Add the first one above.</td>
+        <td colspan="7" class="empty-table">No recipients yet. Add the first one above.</td>
       </tr>
     `;
     return;
   }
 
-  bikerTableBody.innerHTML = state.bikers.map((biker) => {
+  const visibleBikers = state.bikers.filter((biker) => state.bikerStatusFilter === "all"
+    || String(biker.status).toLowerCase() === state.bikerStatusFilter);
+  if (visibleBikers.length === 0) {
+    bikerTableBody.innerHTML = `
+      <tr>
+        <td colspan="7" class="empty-table">No ${escapeHtml(state.bikerStatusFilter)} recipients.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  bikerTableBody.innerHTML = visibleBikers.map((biker, rowIndex) => {
     const selected = state.selectedBikerIds.has(biker.id);
     const rowEdit = state.modifyMode && selected
       ? `<button type="button" class="table-action" data-action="edit-biker" data-biker-id="${escapeHtml(biker.id)}">Edit</button>`
@@ -2388,13 +2451,14 @@ function renderBikerTable() {
           <input type="checkbox" data-action="select-biker" data-biker-id="${escapeHtml(biker.id)}" ${selected ? "checked" : ""}
             aria-label="Select ${escapeHtml(biker.name)}">
         </td>
+        <td class="row-number">${rowIndex + 1}</td>
         <td>
           <div class="table-cell-strong">${escapeHtml(biker.name)}</div>
           <div class="table-cell-muted">${escapeHtml(biker.firstName || "")}</div>
         </td>
         <td>${escapeHtml(biker.phoneNumber)}</td>
         <td>${bikeSummary}</td>
-        <td>${escapeHtml(bikerStatusSummary(biker))}</td>
+        <td>${bikerStatusCell(biker)}</td>
         <td>
           <div class="table-actions">
             <button type="button" class="table-action" data-action="biker-details" data-biker-id="${escapeHtml(biker.id)}">Details</button>
@@ -4488,13 +4552,26 @@ if (bikerTableBody) {
     }
 
     const bikerId = button.dataset.bikerId;
-    if (button.dataset.action === "biker-details") {
+    if (button.dataset.action === "toggle-biker-status") {
+      toggleBikerStatus(bikerId);
+    } else if (button.dataset.action === "biker-details") {
       openBikerDetails(bikerId);
     } else if (button.dataset.action === "edit-biker") {
       const biker = state.bikers.find((item) => item.id === bikerId);
       populateBikerForm(biker);
       setNotice(bikerNotice, `Editing ${biker?.name || "biker"}.`, "success");
     }
+  });
+}
+
+if ($("bikerStatusFilters")) {
+  $("bikerStatusFilters").addEventListener("click", (event) => {
+    const chip = event.target.closest("[data-status-filter]");
+    if (!chip) {
+      return;
+    }
+    state.bikerStatusFilter = chip.dataset.statusFilter;
+    renderBikerTable();
   });
 }
 

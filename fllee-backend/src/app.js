@@ -19,12 +19,15 @@ const {
   updateBike
 } = require("./services/bike-service");
 const { buildDashboardResponse } = require("./services/dashboard-service");
+const { getFleet } = require("./services/fleet-service");
 const {
   applyDataSyncRun,
   createDataSyncRun,
+  deleteDataPayment,
   failDataSyncRun,
   getDataDashboard,
   getDataPayments,
+  getLatestSerializedRun,
   saveDataSyncIntervalDays
 } = require("./services/data-sync-service");
 const {
@@ -32,10 +35,24 @@ const {
   startDataSyncProcess
 } = require("./services/data-sync-runner-service");
 const {
+  attachSourceStatements,
+  reopenUnmatchedRecorded,
+  reopenSkippedEntries,
+  auditStatementAgainstSheet,
+  listAliases,
+  removeAlias,
+  saveAlias,
+  discardBankStatement,
   getBankStatement,
+  listCompletedStatements,
+  saveBikerSelection,
+  skipBankEntry,
   listBankStatements,
   listRegisteredBikers,
+  reopenSyncedEntry,
   syncBankPayment,
+  undoSkipEntry,
+  verifyBankStatement,
   uploadBankStatement
 } = require("./services/bank-statement-service");
 const {
@@ -577,11 +594,32 @@ function createAppServer() {
         return;
       }
 
-      if (req.method === "GET" && url.pathname === "/api/data/payments") {
+      if (req.method === "GET" && url.pathname === "/api/data/fleet") {
         sendJson(res, 200, {
-          ...await getDataPayments(),
+          ...await getFleet(),
+          latestRun: await getLatestSerializedRun(),
           runner: getDataSyncRunnerState()
         });
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/data/payments") {
+        const payments = await getDataPayments();
+        sendJson(res, 200, {
+          ...payments,
+          items: await attachSourceStatements(payments.items).catch(() => payments.items),
+          runner: getDataSyncRunnerState()
+        });
+        return;
+      }
+
+      if (req.method === "DELETE" && /^\/api\/data\/payments\/[^/]+$/.test(url.pathname)) {
+        const response = await deleteDataPayment(decodeURIComponent(url.pathname.split("/")[4] || ""));
+        if (response.statusCode === 200 && response.body.payment) {
+          // The deposit is no longer in the sheet, so its bank entry goes back to pending.
+          await reopenSyncedEntry(response.body.payment).catch(() => {});
+        }
+        sendJson(res, response.statusCode, response.body);
         return;
       }
 
@@ -611,6 +649,86 @@ function createAppServer() {
 
       if (req.method === "POST" && url.pathname === "/api/bank-statements/sync-payment") {
         const response = await syncBankPayment(await readJson(req));
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/bank-statements/aliases") {
+        const response = await listAliases();
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/bank-statements/aliases") {
+        const response = await saveAlias(await readJson(req));
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "DELETE" && /^\/api\/bank-statements\/aliases\/[^/]+$/.test(url.pathname)) {
+        const response = await removeAlias(decodeURIComponent(url.pathname.split("/")[4] || ""));
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/bank-statements/skip-entry") {
+        const response = await skipBankEntry(await readJson(req));
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "POST" && /^\/api\/bank-statements\/[^/]+\/reopen-skipped$/.test(url.pathname)) {
+        const payload = await readJson(req);
+        const response = await reopenSkippedEntries(
+          decodeURIComponent(url.pathname.split("/")[3] || ""),
+          { onlyBulk: payload?.onlyBulk !== false }
+        );
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "POST" && /^\/api\/bank-statements\/[^/]+\/reopen-unmatched$/.test(url.pathname)) {
+        const response = await reopenUnmatchedRecorded(decodeURIComponent(url.pathname.split("/")[3] || ""));
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "POST" && /^\/api\/bank-statements\/[^/]+\/audit$/.test(url.pathname)) {
+        const payload = await readJson(req);
+        const response = await auditStatementAgainstSheet(
+          decodeURIComponent(url.pathname.split("/")[3] || ""),
+          { write: Boolean(payload?.write) }
+        );
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "POST" && /^\/api\/bank-statements\/[^/]+\/verify$/.test(url.pathname)) {
+        const response = await verifyBankStatement(decodeURIComponent(url.pathname.split("/")[3] || ""));
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/bank-statements/undo-skip") {
+        const response = await undoSkipEntry(await readJson(req));
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/bank-statements/select-biker") {
+        const response = await saveBikerSelection(await readJson(req));
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/bank-statements/completed") {
+        const response = await listCompletedStatements();
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "DELETE" && /^\/api\/bank-statements\/[^/]+$/.test(url.pathname)) {
+        const response = await discardBankStatement(decodeURIComponent(url.pathname.split("/")[3] || ""));
         sendJson(res, response.statusCode, response.body);
         return;
       }

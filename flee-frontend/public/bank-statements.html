@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fleebee Bank Statements</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1626'/%3E%3Cpath d='M19 5L9.5 14.5M19 5l-5.5 14-2-6.5L5 10.5z' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/assets/css/styles.css?v=3">
+  <link rel="stylesheet" href="/assets/css/styles.css?v=33">
 </head>
 <body data-view="bank-statements">
   <div class="app-shell">
@@ -23,6 +23,7 @@
         <div class="side-group-label">Workflow</div>
         <div class="side-subnav">
           <a class="side-sub-link" href="/settings/index.html" data-nav-view="recipients"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="9" cy="9" r="3"/><path d="M4.5 19c.8-2.6 3-4 5.5-4s4.7 1.4 5.5 4"/></svg>Recipients</a>
+          <a class="side-sub-link" href="/fleet.html" data-nav-view="fleet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.5" cy="16.5" r="2.5"/><circle cx="17.5" cy="16.5" r="2.5"/><path d="M6.5 16.5 10 9h4.5l3 7.5M10 9 8.5 6.5H6.5M14.5 9l1.2-2H18"/></svg>Bikes</a>
           <a class="side-sub-link" href="/bikes.html" data-nav-view="bikes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M7 17l2-6h6l2 6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>Bike Workflow</a>
           <a class="side-sub-link" href="/batches.html" data-nav-view="batches"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4.5 7.5 12 3l7.5 4.5L12 12 4.5 7.5Z"/><path d="M4.5 12 12 16.5 19.5 12"/></svg>Batches</a>
         </div>
@@ -73,8 +74,36 @@
               <span>Click to browse or drop the statement here</span>
               <input id="statementFile" name="file" type="file" accept="application/pdf,.pdf" required>
             </label>
-            <div class="statement-upload-actions"><span id="statementFileMeta">No file selected</span><button id="processStatementButton" class="primary-button" type="submit" disabled><span id="uploadLoader" class="button-loader hidden" aria-hidden="true"></span><span id="processButtonLabel">Process statement</span></button></div>
+            <div class="statement-upload-actions"><span id="statementFileMeta">No file selected</span><span class="statement-button-group"><button id="clearStatementButton" class="ghost-button" type="button">Clear</button><button id="processStatementButton" class="primary-button" type="submit" disabled><span id="uploadLoader" class="button-loader hidden" aria-hidden="true"></span><span id="processButtonLabel">Process statement</span></button></span></div>
           </form>
+        </section>
+
+        <section class="panel history-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Saved statements</h2>
+              <p class="mini-note">Every upload is kept here under a short name. Open one to see what was synced or skipped and to finish what is pending. When nothing is pending it turns green as Verified (its PDF is removed) and the same file cannot be uploaded again. If the rest was handled earlier, open the statement and press “Mark as verified”. Discard removes a statement from this list; anything already synced stays on record, so later overlapping statements skip it.</p>
+            </div>
+            <button id="refreshHistoryButton" class="ghost-button" type="button">Refresh</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table history-table numbered">
+              <thead><tr><th class="row-number">#</th><th>Statement</th><th>Period</th><th>Progress</th><th>Status</th><th>Uploaded</th><th>Actions</th></tr></thead>
+              <tbody id="historyBody"><tr><td colspan="7" class="empty-table">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel alias-panel">
+          <details>
+            <summary class="alias-summary"><strong>Remembered payers (<span id="aliasCount">0</span>)</strong> <span class="mini-note">Names you tied to a rider. A statement with the same name selects that rider for you.</span></summary>
+            <div class="table-wrap">
+              <table class="data-table history-table numbered">
+                <thead><tr><th class="row-number">#</th><th>Payer name</th><th>Pays for</th><th></th></tr></thead>
+                <tbody id="aliasBody"><tr><td colspan="4" class="empty-table">Loading…</td></tr></tbody>
+              </table>
+            </div>
+          </details>
         </section>
 
         <section id="statementSummary" class="metric-grid data-metric-grid hidden" aria-label="Statement results">
@@ -85,12 +114,30 @@
         </section>
 
         <section id="statementResults" class="panel hidden">
-          <div class="panel-head"><div><h2>Incoming deposits</h2><p id="statementDescription" class="mini-note">The extracted date, depositor name, and amount appear below.</p></div></div>
+          <div class="panel-head"><div><h2>Incoming deposits</h2><p id="statementDescription" class="mini-note">The extracted date, depositor name, and amount appear below.</p></div><div class="panel-head-actions"><div id="statementFilters" class="filter-chips" aria-label="Show entries"></div><button id="reopenSkippedButton" class="ghost-button hidden" type="button" title="Rows skipped only because an earlier statement was marked as verified in bulk">Reopen skipped (0)</button><button id="checkSheetButton" class="ghost-button hidden" type="button" title="Compare the Google Sheet with this statement and list rows that look wrong">Check sheet</button><button id="syncAllButton" class="primary-button hidden" type="button">Sync all ready (0)</button><button id="verifyStatementButton" class="primary-button hidden" type="button" title="Use when the rest of this statement was already handled earlier">Mark as verified</button><button id="closeTableButton" class="ghost-button" type="button" title="Hide this table. Nothing is lost; open the statement again from Saved statements.">Close table</button></div></div>
           <div class="table-wrap">
-            <table class="data-table bank-statement-table">
-              <thead><tr><th>Date</th><th>Depositor name</th><th>Registered biker</th><th>Amount</th><th>Status</th><th>Google Sheet</th></tr></thead>
+            <table class="data-table bank-statement-table numbered">
+              <thead><tr><th class="row-number">#</th><th>Date</th><th>Depositor name</th><th>Registered biker</th><th>Amount</th><th>Status</th><th>Google Sheet</th></tr></thead>
               <tbody id="statementTransactionsBody"></tbody>
-              <tfoot><tr><td colspan="3">TOTAL RECEIVED</td><td id="statementTableTotal">RWF 0</td><td colspan="2"></td></tr></tfoot>
+              <tfoot><tr><td colspan="4">TOTAL RECEIVED</td><td id="statementTableTotal">RWF 0</td><td colspan="2"></td></tr></tfoot>
+            </table>
+          </div>
+        </section>
+        <section id="sheetCheckPanel" class="panel hidden">
+          <div class="panel-head">
+            <div>
+              <h2 id="sheetCheckTitle">Sheet check</h2>
+              <p id="sheetCheckSummary" class="mini-note"></p>
+            </div>
+            <div class="panel-head-actions">
+              <button id="reopenUnmatchedButton" class="ghost-button hidden" type="button" title="Deposits marked already in the sheet although no row matches them">Reopen 0 with no matching row</button><button id="writeCommentsButton" class="primary-button hidden" type="button">Add comments to the sheet</button>
+              <button id="closeSheetCheckButton" class="ghost-button" type="button">Close</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table sheet-check-table numbered">
+              <thead><tr><th class="row-number">#</th><th>Sheet row</th><th>Rider</th><th>Amount</th><th>Problem</th><th>Comment in sheet</th></tr></thead>
+              <tbody id="sheetCheckBody"></tbody>
             </table>
           </div>
         </section>
@@ -98,6 +145,6 @@
     </div>
   </div>
   <script src="/app-config.js"></script>
-  <script src="/assets/js/bank-statements.js?v=7"></script>
+  <script src="/assets/js/bank-statements.js?v=31"></script>
 </body>
 </html>

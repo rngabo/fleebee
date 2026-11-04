@@ -14,6 +14,7 @@ class Statement(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     file_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     original_filename: Mapped[str] = mapped_column(String(255))
+    display_name: Mapped[str | None] = mapped_column(String(120), unique=True)
     stored_path: Mapped[str] = mapped_column(Text)
     bank_name: Mapped[str] = mapped_column(String(120))
     account_holder_name: Mapped[str | None] = mapped_column(String(255))
@@ -36,6 +37,9 @@ class Statement(Base):
     calculated_credits: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
     calculated_debits: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
     credit_difference: Mapped[Decimal | None] = mapped_column(Numeric(20, 2))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Discarded from the list but kept on record (rows, outcomes, name, file hash).
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     links: Mapped[list["StatementTransaction"]] = relationship(

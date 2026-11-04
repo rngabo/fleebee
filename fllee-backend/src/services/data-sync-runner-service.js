@@ -88,6 +88,11 @@ function startDataSyncProcess(trigger = "manual") {
       closeOrphanedRun(startedAt, errorMessage).catch((error) => {
         console.error("Could not close an interrupted data sync run:", error);
       });
+    } else {
+      // Payments deleted from the sheet by hand send their bank statement entries back to Pending.
+      require("./bank-statement-service").reconcileSyncedEntries().catch((error) => {
+        console.error("Could not reconcile bank statement entries:", error.message);
+      });
     }
   });
 

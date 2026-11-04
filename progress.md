@@ -2443,3 +2443,342 @@ The big recent wins were bundle automation, persistent ADB recovery on `.50`, ni
   headless-Chrome screenshots against mock data). Under 1500 px the two
   "Credit forward" columns are hidden; under 1320 px a scrollbar is allowed.
 - Removed the "Synchronization coverage" table.
+
+## 2026-11-04 — Bank statements: Clear button
+
+- Added a "Clear" button before "Process statement": resets the file picker, hides
+  the summary cards and table, and clears the notice. It only clears the view;
+  processed statements stay stored in the bank statement service.
+
+## 2026-11-04 — Payments page: insights and collapsible table
+
+- `/data-payments.html`: the payments table is hidden behind a "Show table" /
+  "Hide table" button (filter inside). Kept the 4 original cards and added Paid
+  this month, Last 30 days, Average payment, Largest payment, plus "Payments by
+  month" and "Top payers" bar charts. Verified with a headless-Chrome screenshot
+  on mock data. Not deployed.
+
+## 2026-11-04 — Payments: delete app-synced entries (also from the Google Sheet)
+
+- All payments table has an Action column. A Delete button appears only on rows
+  whose Reference/Notes is "Synced from app"; manual entries get none, and the
+  API refuses them (403).
+- `DELETE /api/data/payments/:id` → `removeSyncedPayment` in
+  `payments-sheet-service.js`: finds the one sheet row with the same date, name,
+  amount AND note "Synced from app" (never rows 1–2), re-reads it right before
+  deleting, then removes that row via deleteDimension and the local record.
+  If the row is already gone from the sheet, only the local record is removed.
+- Tests: `node --test test/payments-sheet-service.test.js` (mocked Google API).
+  Real deletion needs the service account to be an Editor of the sheet (it was
+  view-only when last checked). Not deployed.
+
+## 2026-11-04 — Bank statements: re-uploading the same file shows saved results
+
+- The bank service rejects a PDF whose SHA-256 matches a stored statement (409).
+  `uploadBankStatement` now turns that into the saved statement plus
+  `already_processed: true`, and the page shows it with an explanatory notice
+  instead of "Upload rejected". Nothing is added twice.
+
+## 2026-11-04 — Bank statements: saved names, history, settle-and-delete
+
+- Bank service migration `20261105_01`: `statements.display_name` (e.g.
+  `BK-3215_may-oct`, year added only when not the current year; existing rows
+  backfilled), `transactions.selected_biker_id`, `settled_transactions`
+  (fingerprint + outcome only) and `completed_statements` (hash, name, period,
+  entry count: the only thing kept for a finished file).
+- Settling an entry (synced, already in sheet, or skipped) deletes it from the
+  stored statement; when none are left the PDF and statement are deleted and a
+  completed record is written. Re-uploading a completed file is refused (409,
+  `code: completed`); an unfinished file reopens with saved biker choices;
+  overlapping statements skip entries already settled (hash match).
+- New endpoints: `POST /api/v1/transactions/{id}/settle`,
+  `PUT /api/v1/transactions/{id}/biker`, `GET /api/v1/statements/completed`,
+  `DELETE /api/v1/statements/{id}` (discard, no tombstone, can re-upload).
+  Fleebee: `/api/bank-statements/{skip-entry,select-biker,completed}` and DELETE.
+- Page: "Saved statements" panel (name, period, "x of y left", Open, Discard,
+  collapsible completed list), per-row Skip, notices about remaining entries.
+  The page no longer auto-loads the latest statement; open one from the list.
+- Tests: `python -m pytest` in bank-statement-service (settlement, history API).
+  Not exercised on real statements (would delete live entries). Not deployed.
+
+## 2026-11-04 — Synced payments appear on the Payments page immediately
+
+- After a successful sheet write, `recordSyncedPayment` stores the payment locally with
+  the same `sourceKey` the sheet import computes (verified identical), so it shows on
+  the Payments page with its Delete button right away and is not duplicated by the next
+  import. Rows for people not in the sheet's Setup tab are refused before writing
+  (422), because the import cannot link them (they appear as a "conflict").
+- Note: local test biker "Habimana Claude" is not in Setup; a row for him was written to
+  the live sheet (row 182, 2026-10-20, 36,000, "Synced from app") before this guard existed.
+
+## 2026-11-04 — Statements keep full history; one delete (Payments); links between pages
+
+- Replaced "delete entries as you go": entries now stay with an outcome
+  (`transactions.sync_status` PENDING / SYNCED / IN_SHEET / SKIPPED, plus
+  `synced_biker_name`, `synced_at`, `sheet_row`); `statements.completed_at` is set when
+  nothing is pending and only the stored PDF is deleted then. Migration `20261106_01`.
+  (`completed_statements` / `settled_transactions` tables from the previous migration are now unused.)
+- Re-upload: complete → refused (409 `code: completed`); unfinished → reopens.
+- Skip is reversible (`POST /transactions/{id}/reopen`). Deleting an app-synced payment
+  on the Payments page sets its entry back to PENDING (`/transactions/reopen-synced`).
+  Statement Discard is allowed only when nothing is synced (409 otherwise; also hidden in UI).
+- Bank Statements page: history table (progress, Complete/In progress), Open shows every row
+  with filters All/Pending/Synced/Skipped, "View in Payments" link on synced rows, "Undo skip".
+  Payments page: shows the source statement name (link back via `?open=<id>`) and accepts
+  `?show=1&filter=<name>`.
+- Tests: bank-statement-service `python -m pytest` (22 pass). Real-data check: skip then undo
+  on one real entry. Not deployed to the home computer.
+
+## 2026-11-04 — Payments deleted by hand in the sheet send bank entries back to Pending
+
+- App Delete when the row is already gone from the sheet: removes only the app record and
+  sets the bank entry back to Pending (Sync/Skip return). Verified end to end with the
+  Google API stubbed (no sheet write possible).
+- After every successful data import, `reconcileSyncedEntries` reopens SYNCED entries whose
+  payment is no longer in the sheet (only entries synced before that import started;
+  `findOrphanedSyncedEntries` is unit-tested). `GET /api/v1/transactions/synced` now returns `synced_at`.
+
+## 2026-11-04 — Verified status, "Mark as verified" inside the open statement, Close table
+
+- Bank service: `POST /api/v1/statements/{id}/verify` marks still-pending entries Skipped, sets
+  `completed_at` and removes the PDF (test added; 23 pass). Fleebee: `POST /api/bank-statements/:id/verify`.
+- Page: status shows green "Verified ✓" (auto when nothing is pending, or by hand) or amber
+  "In progress" (display only). Verifying with rows left is only possible from the open
+  statement's "Mark as verified" button (confirm dialog); "Close table" hides the open table.
+  Undo skip on a row of a verified statement reopens it.
+
+## 2026-11-04 — Setup tab vs local bikers checked; bank page offers Setup riders only
+
+- Fresh import from the sheet: COMPLETED, 15 Setup members (12 active linked to Fleebee bikers
+  with identical name/phone/plate; 3 inactive kept as history only), 179 payments, 0 conflicts.
+  The importer links but never overwrites existing biker details (by design); no differences found.
+- 3 local demo bikers (Mugisha Eric, Uwase Linda, Habimana Claude) are not in Setup; left untouched
+  in Fleebee (Habimana has 3 demo messages) but no longer offered in the Bank Statements dropdown.
+
+## 2026-11-04 — Recipients: status filter and one-click Active/Inactive
+
+- `/settings/index.html` (Recipient Directory): All / Active / Inactive filter chips with counts,
+  and the Status cell is a clickable chip that switches Active <-> Inactive via
+  `PUT /api/bikers/:id {status}` (confirm when deactivating). Setup-tab imports do not overwrite
+  this status. Verified with a headless render on real biker data and a backend toggle round trip.
+
+## 2026-11-04 — Recipients table: row numbers
+
+- Added a "#" column (1..n of the rows currently shown, so it follows the Active/Inactive filter).
+
+## 2026-11-04 — Row numbers on all main tables
+
+- "#" column on Recipients (JS, follows the status filter), Data Dashboard, Payments (all payments),
+  Bank Statements entries and Saved statements. Non-Recipients tables use a CSS counter
+  (`table.numbered`) so hidden/filtered rows are not counted. Dashboard checked at 1366 and 1920 px;
+  below 1400 px the dashboard uses slightly smaller type to keep every column visible.
+
+## 2026-11-04 — Bikes page (Workflow → Bikes)
+
+- New `/fleet.html` + `assets/js/fleet.js`, API `GET /api/data/fleet` (`fleet-service.js`), and a
+  "Bikes" sidebar link under Recipients on every page. One row per plate: Active (an active Setup
+  rider uses it) or Available (none), current user with phone and start date, and the cumulative
+  payments of every rider who has had that plate (former riders noted). Totals reconcile with
+  all imported payments (7,142,500). Verified with a headless render on real data.
+
+## 2026-11-04 — Bikes ranked by total paid
+
+- `/fleet.html` rows are ranked from the highest cumulative amount paid (ties by plate); the "#" is the rank.
+
+## 2026-11-04 — Bikes: batch column
+
+- Added a Batch column (middle) to `/fleet.html`: batch of the current rider (most recent former rider for an
+  available bike), shown as the same coloured chip as on the Data Dashboard. API item field `batch`.
+
+## 2026-11-04 — Discard on verified statements keeps the record (archive)
+
+- Bank service migration `20261107_01` adds `statements.archived_at`. `DELETE /api/v1/statements/{id}`
+  now returns `{mode}`: verified → "archived" (hidden from the list; rows with outcomes, name and file hash
+  stay, so the same file stays blocked and overlapping uploads reuse the handled rows); unverified with
+  nothing in the sheet → "deleted" (file and entries removed, can re-upload); unverified but partly synced →
+  409. Undo skip on an archived statement's row returns it to the list.
+- Page: Discard shows on verified statements too (different confirm text); after an upload that overlaps
+  earlier ones the notice says how many rows were already handled and how many still need action.
+- Test: fake-parser upload test proves an overlapping upload shows earlier rows as Synced/Skipped and only
+  the new row as Pending (bank service: 27 tests pass). Not deployed.
+
+## 2026-11-04 — Bikes: real refresh from the Sheet + batch filter; local sync worker enabled
+
+- Bikes page "Refresh from Sheet" now starts the data sync (`POST /api/data/refresh`), waits for the
+  new run, then reloads (`/api/data/fleet` also returns `latestRun` + `runner`). Shows riders/payments
+  counts and "Last synchronized". Previously it only re-read local data.
+- Batch chips (multi-select, with counts) filter the table; the status counts and TOTAL follow them.
+- Local docker could not run the sync at all (no token/worker): `docker-compose.yml` now mounts
+  `./data-sync` and sets `DATA_SYNC_SCRIPT_PATH/ENV_FILE`; new gitignored `data-sync/.env` and a matching
+  `DATA_SYNC_SERVICE_TOKEN` in `fllee-backend/.env` (freshly generated, local only). A real worker run
+  completed (15 riders, 179 payments, 0 conflicts). The corrected batch (RM724T → B-Jul-2026) was imported.
+
+## 2026-11-04 — Bank names: target the last text; shortened-name matching
+
+- `name_extraction.py` (BK YACU cash deposits): the depositor is now the trailing text after the payer's
+  phone number (`... | VERSEMENT 0782357977HARAGIRIMANA E` → "Haragirimana E"); without a trailing name it
+  falls back to the words after the last pipe, then to the sender before the pipe (old rule). The sender is
+  kept as `additional_possible_names`, the payer phone as `payer_phone`. Rule id `bk-yacu-trailing-name-v1`.
+- `python -m app.services.reextract [--apply]` (bank service) re-runs extraction on stored entries that are
+  still PENDING and not hand-corrected (clears their stale saved biker pick). Applied once: 5 entries changed.
+- Fleebee matching (`matchesRider`): a name cut short matches the rider when every word is exact except the
+  last, which may be the start of a word (even one letter); a lone word only matches a rider's surname.
+  The dropdown and the auto-match now use the same rider list (active Setup riders).
+- Tests: bank service 31 pass; `test/rider-matching.test.js`. Verified on the open statement: 11 of 12 pending
+  entries now point at a rider (previously ~1), 3 of them from earlier manual picks.
+
+## 2026-11-04 — Bank names, final rule: rider's first/last name, otherwise the last text
+
+- Supersedes the previous two entries' matching heuristics. Bank service: BK YACU returns the LAST text of the
+  narration (text after the payer phone, else words after the last pipe, ignoring VERSEMENT/DEPOSIT) as
+  `depositor_name`; the sender before the pipe is kept in `name_hints.sender_name`
+  (`name_hints` = `{trailing_name, sender_name, payer_phone}` on each transaction). Fallback to the sender if
+  there is no last text. `python -m app.services.reextract --apply` re-ran on pending, uncorrected entries.
+- Fleebee (`findRidersByName`): a word equal to a rider's last name (first word of their name), else a 4+
+  letter word equal to their first name, selects that rider ONLY if exactly one rider fits. Two riders fitting
+  (e.g. shared "Jean Claude") or two names pointing at different riders -> no selection, "Several riders fit".
+  Nothing fits -> the last text is just shown as the name, with `Sender: …` as a hint.
+  Saved manual picks are never overridden. Tests: `test/rider-matching.test.js` (5), bank service 32 pass.
+
+## 2026-11-04 — Late payments: "for month" tag (keeps the real date)
+
+- A payment can say which month it is for in Reference/Notes: `Synced from app · for 2026-10` (written when
+  syncing from a bank statement with the new "For month" choice: this month, or up to 3 months earlier "(late)"),
+  or typed by hand in the sheet (`for 2026-10`). The date is never changed. Untagged payments belong to their
+  own month. (An automatic oldest-first allocation was tried and dropped: it misattributed payments for riders in arrears.)
+- Dashboard: "Count late payments to the month they are for" switch (default on, saved per browser). On: "Paid for
+  month" = payments tagged for the month (dated in it or later, "incl. X late" with dates on hover) and the month's
+  shortfall follows; off: identical to the sheet. Overall balance, due/paid by date and Track never change.
+  API rows have `forMonth {paid,onTime,late,lateDetails,shortfall,lastPaymentDate,settledOn,daysLate}`.
+- Notes starting with "Synced from app" (with or without the tag) stay deletable from the Payments page; sync
+  validates the month (own month .. 12 months earlier). Tests: dashboard-calculator (8), payments-sheet-service (5).
+  End-to-end with the Google API stubbed. Not deployed.
+
+## 2026-11-04 — Google Sheet formulas now understand "for YYYY-MM"
+
+- Live sheet changed (backup of every touched formula: `data-sync/artifacts/sheet-formulas-before-for-month.json`):
+  1. `Payments!G2`: one ARRAYFORMULA helper column "For month" = the month in a note like `for 2026-10`
+     (case-insensitive, months 01-12 only), otherwise the payment's own month. Grey `yyyy-mm` format.
+  2. `Monthly Summary!H6:H470` (465 formulas): "Paid in month" = SUMIFS on that helper column instead of the
+     payment date. Dashboard "Paid in month", its shortfall and the status columns flow from it unchanged.
+- Verified: before/after values identical on 4,660 Monthly Summary + 375 Dashboard cells (no tags exist yet);
+  logic proven on a scratch tab (since deleted) incl. late, hand-typed uppercase and invalid ("2026-13") notes.
+  The Sheets/Drive APIs here cannot create copies, so no full copy was possible.
+- Same rule as the app's "Count late payments…" switch. Not changed: Paid by date, Due by date, credit columns,
+  last payment date (date-based). To undo: restore Monthly Summary!H6 from the backup and clear Payments!G2.
+
+## 2026-11-04 — Back-dating at sync ("Record as"), reference codes, real date kept in the note
+
+- Business rule (confirmed): a late payment is recorded under the LAST DAY of the month it settles (weekly payers
+  too); the real bank date is kept in the note. Replaces the earlier "For month" picker on the Bank Statements page
+  (the `for YYYY-MM` note tag and the sheet's helper column G still work for hand-typed rows).
+- Sync dialog "Record as": Bank date (default) or "<last day> · back-date · owes N" for the 3 months before the
+  payment's month (owed amount from the dashboard calculation, per rider). API: `recordAs: "YYYY-MM"`.
+- Sheet note format: `Synced from app · paid 2026-11-02 · ref 5fa2e4f7` (ref = first 8 chars of the bank entry id).
+  Duplicate check by ref first (the same entry is never synced twice, even if its date was edited by hand), then the
+  old date+name rule on the recorded date. Delete, reconcile, Payments->statement links and "reopen on delete" all
+  match by ref and fall back to date/name/amount for older rows.
+- Bank service migration `20261108_01`: `transactions.sheet_date` (date written in the sheet; `book_date` stays the
+  bank date). `/transactions/synced` returns `sheet_date` and `ref`; `reopen-synced` accepts `ref`.
+- Fix found by the end-to-end test: re-syncing an already-synced entry no longer downgrades it to "Already in sheet".
+- Verified end to end with an in-memory sheet (back-dated write, same-entry duplicate after a hand-edited date,
+  delete by ref, entry back to Pending). Tests: bank service 35, fllee-backend 28 (sheet service, reconcile,
+  calculator, matching). Not deployed.
+
+## 2026-11-04 — Bulk sync, remembered payers, Discard on every statement
+
+- **Sync all ready (N)** (Bank Statements, in the open table's header): syncs every pending row that has a rider,
+  one after another, each with its own "Record as" choice; confirm dialog (count, total, back-dated, rows left
+  alone); a Stop button; stops on sheet-level errors (no access/quota/outage), continues on per-row ones; one
+  summary notice. The sheet writer now retries on 429/503 with backoff and caches the tab id
+  (`SHEETS_RETRY_BASE_MS`), because bulk runs can hit Google's write quota.
+- **Remembered payers**: choosing a rider for a name that is not that rider saves the name→rider link
+  (bank service `payer_aliases`, migration `20261109_01`, `/api/v1/aliases`; Fleebee `/api/bank-statements/aliases`).
+  The same name (any case/word order) selects that rider in later statements ("Remembered: X pays for Y"), is
+  filled on the other rows of the open table (they turn Validated), and a "Remembered payers" list with Forget
+  sits under Saved statements. A remembered rider that is no longer an active rider is ignored.
+- **Discard is available on every statement** again: nothing synced -> deleted (can re-upload); anything synced or
+  verified -> archived (PDF removed, rows/outcomes kept; pending rows reappear in an overlapping statement; the
+  same unfinished file reopens). `StatementLockedError` no longer used.
+- Restored by accident-fix: "Mark as verified" and "Close table" handlers (my Discard edit had removed them).
+- Verified in headless Chrome against a mock API (select -> remember -> auto-fill -> sync all; verify; close).
+  Tests: bank service 37, fllee-backend 28. Not deployed.
+
+## 2026-11-04 — Sheet check: validate the sheet's existing payments against an uploaded statement
+
+- New `sheet-audit-service.js` (pure rules, 11 tests): per rider, compares the sheet's Payments rows dated inside the
+  statement's period (excluding the last 7 days, which may belong to later deposits) with the statement's deposits.
+  Matching: reference code first, then same amount at the closest date (a row may be back-dated up to 62 days before
+  the bank date, or entered up to 5 days early; the `paid YYYY-MM-DD` note date is used when present), one deposit
+  per row. Findings: NOT_IN_BANK (no deposit), AMOUNT_DIFFERS (a deposit at a similar date with another amount),
+  DUPLICATE (identical extra row). Skipped / not-yet-assigned deposits can still explain a row (never flagged).
+  Also reports deposits with a rider that are not in the sheet yet.
+- `POST /api/bank-statements/:id/audit {write}`: preview by default; with `write` each finding is appended to that row's
+  Reference/Notes as ` | CHECK [<statement>]: <message>` (existing note kept in front, RAW write, row re-verified
+  first, never twice for the same statement, nothing deleted or edited otherwise).
+- Page: "Check sheet" button and a "Sheet check" panel (problem, link to the row in the sheet, comment status);
+  Sync / Sync all ready now also run the check afterwards (preview only); "Add comments to the sheet (N)" writes the
+  notes after a confirmation. Writing is deliberately a second step because a partial statement makes many rows
+  look unbacked.
+- Dry run on the real Sep-Nov statement (read-only): 162 rows checked, 13 matched, 43 explained by skipped/unassigned
+  deposits, 18 too recent, 8 flagged (7 not in bank, 1 amount differs). End-to-end write test on an in-memory copy of
+  the real payments: only the 8 flagged rows touched, a "150k" note kept, second run writes nothing. Not deployed.
+
+## 2026-11-04 — Skipped rows can take a rider; bulk-verified rows are not real decisions
+
+- Cause of "Skipped" rows in a new overlapping upload: "Mark as verified" had set every leftover row of an earlier
+  statement to SKIPPED, and the new statement reused those deposits. The Aug-Nov file even auto-completed on upload
+  (nothing pending) and could not be uploaded again.
+- Bank service migration `20261110_01`: `transactions.skip_reason` (`MANUAL` = Skip button, `VERIFY` = closed in bulk;
+  existing rows backfilled by identical skip timestamp). New uploads reopen VERIFY-skipped deposits as PENDING;
+  uploading a file that only looked complete because of bulk skips reopens it instead of refusing it;
+  `POST /statements/{id}/reopen-skipped?only_bulk=`; `POST /statements/{id}/restore`.
+  Archived statements no longer resurface when a shared row changes.
+- Page: a skipped row has a rider choice (picking one reopens it and remembers the payer; the same payer on other
+  skipped rows is reopened and filled too); "Reopen skipped (N)" reopens the bulk-skipped rows of the open statement.
+- Restored `BK-3215_aug-nov` for the operator: 109 rows pending (40 with a rider suggested), 15 already synced.
+- Tests: bank service 41, fllee-backend 42; headless-Chrome check of the skipped-row flow. Not deployed.
+
+## 2026-11-04 — Same logic on every row: last text first, similar names follow the pick
+
+- Cause of rows showing the sender instead of the last text: deposits that were skipped / reused from older statements
+  kept the name an older rule had stored. Now `refresh_extraction` re-reads an entry with the current rules whenever it
+  becomes pending again (reopen skipped, upload that reuses it); operator corrections are never touched; the
+  re-extract tool uses the same helper. Applied to the open Aug-Nov statement: 61 rows re-read; riders suggested
+  for 85 of 109 pending rows (was 40).
+- A pick now cascades to SIMILAR names on the page: same words in any order or one cut-off word
+  (`similarNames`, same rule in the page and the server; "Uwurukundo Co" ~ "Uwurukundo Cos" ~ "COS Uwurukundo"),
+  including rows that were skipped (reopened and filled). Remembered payers also match by similarity on later statements.
+- A sender that fits several riders no longer produces "Several riders fit" when the shown (last text) name fits none.
+- Columns unchanged: # | Date | Depositor name | Registered biker | Amount | Status | Google Sheet.
+- Tests: bank service 42, fllee-backend 45; headless-Chrome run of pick -> similar rows validate -> next pick. Not deployed.
+
+## 2026-11-04 — Bank Statements tables fit without sideways scrolling
+
+- Measured in headless Chrome: the entries table needed ~1,100 px but the page was capped at 1,200 px, so it scrolled
+  by ~100 px at 1366 and ~190 px at 1280 (Saved statements also at 1280). Now the page uses the full width and the
+  flexible columns wrap; no table scrolls sideways at 1280-1920 px (within 12 px at 1180).
+- Rows kept to one line: the "Record as" dropdown only appears on a row when the chosen rider owes an earlier month
+  (amount in the label), when a back-date is already chosen, or after clicking "Back-date"; "Not a registered biker" moved
+  into the status tooltip; header buttons never break words and wrap as a group.
+
+## 2026-11-04 — Sync never adds a payment the sheet already has (one-to-one matching)
+
+- Incident: Sync only treated an exact same date+name as "already there", so deposits the operator had already typed
+  (usually back-dated to a month end) were added again: 40 rows (sheet rows 182-221) written by the app, most of them
+  duplicates (e.g. 1 Aug 30,000 vs the operator's 31 Jul row 69). The operator removed them from the sheet; the
+  refresh reconcile put the 40 deposits back to Pending.
+- Fix: `assignDeposits` / `findRecordedDeposit` (sheet-audit-service) pair each deposit of the statement with ONE sheet
+  row of the same rider and amount within the back-dating window (62 days back, 5 days early; `paid` note date used),
+  preferring hand-typed rows; identical weekly payments are paired one row per deposit. Sync consults it with the whole
+  statement as context (`statementId` sent by the page) before writing: found -> "Already in the Google Sheet as row N
+  (date, amount). Nothing was added." and the entry becomes IN_SHEET with that row; not found -> added. The old
+  date+name check remains as a backstop.
+- Sheet check: new finding APP_DUPLICATE (a row the app wrote for a payment already present, hand-typed row preferred);
+  deposits marked "already in the sheet" with no matching row are listed (`recordedWithoutRow`) with a
+  "Reopen N with no matching row" button (`POST /bank-statements/:id/reopen-unmatched`); the bank service
+  `reopen` now also accepts IN_SHEET entries (SYNCED stay protected).
+- Replay of the Aug-Nov sync on an in-memory copy of the real sheet: 40 ready -> 32 skipped as already present,
+  8 added (before the fix: all 40 were added). Read-only check of the real sheet: 154 rows judged, 90 matched,
+  5 amount differences, 1 not in bank, 8 deposits missing, 5 deposits wrongly marked "already in sheet".
+- Tests: sheet-audit 17, fllee-backend 51, bank service 43. Not deployed.

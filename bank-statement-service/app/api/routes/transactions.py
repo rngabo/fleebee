@@ -8,8 +8,10 @@ from sqlalchemy.orm import Session
 
 from app.core.security import require_api_key
 from app.db.session import get_db
+from app.models.statement import Statement, StatementTransaction
 from app.models.transaction import Transaction
-from app.schemas.transaction import TransactionCorrection, TransactionPage, TransactionResponse
+from app.schemas.transaction import BikerSelection, ReopenSyncedRequest, SettleRequest, TransactionCorrection, TransactionPage, TransactionResponse
+from app.services.settlement import reopen_synced_payment, reopen_transaction, settle_transaction
 
 router = APIRouter(prefix="/api/v1/transactions", tags=["transactions"], dependencies=[Depends(require_api_key)])
 
@@ -61,3 +63,66 @@ def correct_transaction(
     db.commit()
     return TransactionResponse.model_validate(transaction)
 
+
+
+@router.put("/{transaction_id}/biker", response_model=TransactionResponse)
+def select_biker(transaction_id: uuid.UUID, selection: BikerSelection, db: Session = Depends(get_db)) -> TransactionResponse:
+    transaction = db.get(Transaction, transaction_id)
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    transaction.selected_biker_id = selection.biker_id or None
+    db.commit()
+    return TransactionResponse.model_validate(transaction)
+
+
+@router.post("/{transaction_id}/settle")
+def settle(transaction_id: uuid.UUID, request: SettleRequest, db: Session = Depends(get_db)) -> dict:
+    """Record the outcome of an entry (synced / already in sheet / skipped). The entry itself is kept."""
+    transaction = db.get(Transaction, transaction_id)
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return {"statements": settle_transaction(db, transaction, request.outcome, request.biker_name, request.sheet_row, request.sheet_date)}
+
+
+@router.post("/{transaction_id}/reopen")
+def reopen(transaction_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    """Undo a skip. Synced entries are reopened only through the payment-deleted route below."""
+    transaction = db.get(Transaction, transaction_id)
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if transaction.sync_status not in ("SKIPPED", "IN_SHEET"):
+        # SYNCED entries have a row written by the app and are reopened only when that row is deleted.
+        raise HTTPException(status_code=409, detail="Only skipped or 'already in the sheet' entries can be reopened here.")
+    return {"statements": reopen_transaction(db, transaction)}
+
+
+@router.post("/reopen-synced")
+def reopen_synced(request: ReopenSyncedRequest, db: Session = Depends(get_db)) -> dict:
+    """A synced payment was deleted from the sheet; make its entry pending again."""
+    return {"reopened": reopen_synced_payment(db, request.book_date, request.amount, request.biker_name, request.ref)}
+
+
+@router.get("/synced")
+def synced_entries(db: Session = Depends(get_db)) -> dict:
+    """Entries synced by this app, with the statement they came from (used to link payments back)."""
+    rows = db.execute(
+        select(Transaction, Statement.id, Statement.display_name)
+        .join(StatementTransaction, StatementTransaction.transaction_id == Transaction.id)
+        .join(Statement, Statement.id == StatementTransaction.statement_id)
+        .where(Transaction.sync_status == "SYNCED")
+        .order_by(Transaction.synced_at.desc())
+        .limit(1000)
+    ).all()
+    return {"items": [
+        {
+            "book_date": transaction.book_date.isoformat(),
+            "amount": str(transaction.credit),
+            "biker_name": transaction.synced_biker_name,
+            "synced_at": transaction.synced_at.isoformat() if transaction.synced_at else None,
+            "sheet_date": transaction.sheet_date.isoformat() if transaction.sheet_date else None,
+            "ref": str(transaction.id)[:8],
+            "statement_id": str(statement_id),
+            "statement_name": name,
+        }
+        for transaction, statement_id, name in rows
+    ]}

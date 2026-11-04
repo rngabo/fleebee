@@ -55,3 +55,50 @@ test("due by date accrues day by day inside the month and adjustments count", ()
 test("rejects an invalid month", () => {
   assert.throws(() => calculateDashboard({ members: [], payments: [], month: "2026-13" }));
 });
+
+test("a payment tagged for an earlier month counts there as late, while keeping its real date", () => {
+  const payments = [
+    pay("m1", "2026-04-20", 100000),
+    { ...pay("m1", "2026-05-10", 25000), referenceNote: "Synced from app \u00b7 for 2026-04" }
+  ];
+  const april = calculateDashboard({ members: [monthly], payments, month: "2026-04" }).rows[0];
+  assert.equal(april.paidInMonth, 100000, "the sheet's view is unchanged: April cash only");
+  assert.equal(april.forMonth.paid, 125000, "April is fully paid once the late 25,000 is counted");
+  assert.equal(april.forMonth.onTime, 100000);
+  assert.equal(april.forMonth.late, 25000);
+  assert.deepEqual(april.forMonth.lateDetails, [{ date: "2026-05-10", amount: 25000 }]);
+  assert.equal(april.forMonth.settledOn, "2026-05-10");
+  assert.equal(april.forMonth.daysLate, 10);
+  assert.equal(april.forMonth.shortfall, 0);
+
+  const may = calculateDashboard({ members: [monthly], payments, month: "2026-05" }).rows[0];
+  assert.equal(may.paidInMonth, 25000, "sheet view: May's cash");
+  assert.equal(may.forMonth.paid, 0, "the 25,000 was for April, so May itself has nothing yet");
+  assert.equal(may.forMonth.shortfall, 125000);
+});
+
+test("untagged payments belong to the month of their date, and hand-typed notes work too", () => {
+  const payments = [
+    pay("m1", "2026-04-20", 125000),
+    { ...pay("m1", "2026-05-05", 30000), referenceNote: "paid late, FOR 2026-04 balance" }   // typed in the sheet by hand
+  ];
+  const april = calculateDashboard({ members: [monthly], payments, month: "2026-04" }).rows[0];
+  const may = calculateDashboard({ members: [monthly], payments, month: "2026-05" }).rows[0];
+  assert.equal(april.forMonth.paid, 155000);
+  assert.equal(april.forMonth.late, 30000);
+  assert.equal(may.forMonth.paid, 0);
+});
+
+test("no tag anywhere means the for-month view equals the sheet's", () => {
+  const payments = [pay("m1", "2026-04-20", 100000), pay("m1", "2026-05-10", 25000)];
+  const may = calculateDashboard({ members: [monthly], payments, month: "2026-05" }).rows[0];
+  assert.equal(may.forMonth.paid, may.paidInMonth);
+  assert.equal(may.forMonth.late, 0);
+});
+
+test("totals add up the for-month view", () => {
+  const payments = [pay("m1", "2026-04-20", 100000), { ...pay("m1", "2026-05-10", 25000), referenceNote: "for 2026-04" }];
+  const result = calculateDashboard({ members: [monthly], payments, month: "2026-04" });
+  assert.equal(result.totals.forMonth.paid, 125000);
+  assert.equal(result.totals.forMonth.late, 25000);
+});

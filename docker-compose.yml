@@ -8,11 +8,14 @@ services:
     environment:
       DATABASE_URL: file:/app/data/fleebee.db
       PAYMENTS_SHEET_SERVICE_ACCOUNT_FILE: /run/keys/fleebee-dd4c3c167ffb.json
+      DATA_SYNC_SCRIPT_PATH: /data-sync/src/run-once.js
+      DATA_SYNC_ENV_FILE: /data-sync/.env
     ports:
       - "4100:4100"
     volumes:
       - fleebee_backend_data:/app/data
       - ./apps-key:/run/keys:ro
+      - ./data-sync:/data-sync:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

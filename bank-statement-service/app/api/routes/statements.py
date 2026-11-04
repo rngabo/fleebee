@@ -15,12 +15,24 @@ from app.db.session import get_db
 from app.models.statement import Statement, StatementTransaction
 from app.models.transaction import Transaction
 from app.parsers.parser_factory import UnsupportedBankStatementError
-from app.schemas.statement import StatementDetail, StatementPage, StatementSummary, UploadResponse
+from app.models.settlement import CompletedStatement
+from app.schemas.statement import CompletedStatementPage, CompletedStatementResponse, StatementDetail, StatementPage, StatementSummary, UploadResponse
 from app.schemas.transaction import SimpleIncomingTransaction, TransactionPage, TransactionResponse
 from app.services.pdf_extraction import PdfValidationError
-from app.services.statement_processor import DuplicateStatementError, process_statement
+from app.services.settlement import discard_statement, reopen_skipped, status_counts, verify_statement
+from app.services.statement_processor import CompletedStatementError, DuplicateStatementError, process_statement
 
 router = APIRouter(prefix="/api/v1/statements", tags=["statements"], dependencies=[Depends(require_api_key)])
+
+
+def _summary_with_counts(db: Session, statement: Statement) -> StatementSummary:
+    summary = StatementSummary.model_validate(statement)
+    counts = status_counts(db, statement.id)
+    summary.remaining_count = counts["pending"]
+    summary.synced_count = counts["synced"]
+    summary.skipped_count = counts["skipped"]
+    summary.can_discard = True
+    return summary
 
 
 def _transactions_for(db: Session, statement_id: uuid.UUID) -> list[Transaction]:
@@ -59,6 +71,12 @@ async def upload_statement(
     except DuplicateStatementError as exc:
         stored_path.unlink(missing_ok=True)
         raise HTTPException(status_code=409, detail={"message": str(exc), "statement_id": str(exc.statement_id)}) from exc
+    except CompletedStatementError as exc:
+        stored_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "completed", "message": str(exc), "display_name": exc.display_name, "completed_at": exc.completed_at.isoformat() if exc.completed_at else None},
+        ) from exc
     except (PdfValidationError, UnsupportedBankStatementError) as exc:
         db.rollback()
         stored_path.unlink(missing_ok=True)
@@ -87,9 +105,19 @@ def list_statements(
     page_size: int = Query(25, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> StatementPage:
-    total = db.scalar(select(func.count()).select_from(Statement)) or 0
-    items = list(db.scalars(select(Statement).order_by(Statement.created_at.desc()).offset((page - 1) * page_size).limit(page_size)))
-    return StatementPage(items=[StatementSummary.model_validate(item) for item in items], total=total, page=page, page_size=page_size)
+    listed = Statement.archived_at.is_(None)
+    total = db.scalar(select(func.count()).select_from(Statement).where(listed)) or 0
+    items = list(db.scalars(select(Statement).where(listed).order_by(Statement.created_at.desc()).offset((page - 1) * page_size).limit(page_size)))
+    summaries = []
+    for item in items:
+        summaries.append(_summary_with_counts(db, item))
+    return StatementPage(items=summaries, total=total, page=page, page_size=page_size)
+
+
+@router.get("/completed", response_model=CompletedStatementPage)
+def list_completed_statements(db: Session = Depends(get_db)) -> CompletedStatementPage:
+    items = list(db.scalars(select(CompletedStatement).order_by(CompletedStatement.completed_at.desc()).limit(100)))
+    return CompletedStatementPage(items=[CompletedStatementResponse.model_validate(item) for item in items])
 
 
 @router.get("/{statement_id}", response_model=StatementDetail)
@@ -97,7 +125,7 @@ def get_statement(statement_id: uuid.UUID, db: Session = Depends(get_db)) -> Sta
     statement = db.get(Statement, statement_id)
     if not statement:
         raise HTTPException(status_code=404, detail="Statement not found")
-    data = StatementSummary.model_validate(statement).model_dump()
+    data = _summary_with_counts(db, statement).model_dump()
     return StatementDetail(
         **data,
         opening_balance=statement.opening_balance,
@@ -110,6 +138,42 @@ def get_statement(statement_id: uuid.UUID, db: Session = Depends(get_db)) -> Sta
         warnings=json.loads(statement.warnings_json),
         transactions=[TransactionResponse.model_validate(item) for item in _transactions_for(db, statement_id)],
     )
+
+
+@router.post("/{statement_id}/verify")
+def verify(statement_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    statement = db.get(Statement, statement_id)
+    if not statement:
+        raise HTTPException(status_code=404, detail="Statement not found")
+    return verify_statement(db, statement)
+
+
+@router.post("/{statement_id}/reopen-skipped")
+def reopen_skipped_entries(statement_id: uuid.UUID, only_bulk: bool = False, db: Session = Depends(get_db)) -> dict:
+    """Skipped entries back to pending: all of them, or only those skipped in bulk when a statement was verified."""
+    statement = db.get(Statement, statement_id)
+    if not statement:
+        raise HTTPException(status_code=404, detail="Statement not found")
+    return {"reopened": reopen_skipped(db, statement, only_bulk=only_bulk)}
+
+
+@router.post("/{statement_id}/restore")
+def restore_statement(statement_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    """Bring a discarded (archived) statement back into the list."""
+    statement = db.get(Statement, statement_id)
+    if not statement:
+        raise HTTPException(status_code=404, detail="Statement not found")
+    statement.archived_at = None
+    db.commit()
+    return {"restored": True}
+
+
+@router.delete("/{statement_id}")
+def delete_statement(statement_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    statement = db.get(Statement, statement_id)
+    if not statement:
+        raise HTTPException(status_code=404, detail="Statement not found")
+    return {"mode": discard_statement(db, statement)}
 
 
 @router.get("/{statement_id}/transactions", response_model=TransactionPage)

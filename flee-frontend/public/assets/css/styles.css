@@ -1976,9 +1976,9 @@ a {
 }
 
 /* Amount column (4th) is right-aligned; the 3rd is the biker select. */
-.bank-statement-table td:nth-child(4),
-.bank-statement-table th:nth-child(4),
-.bank-statement-table tfoot td:nth-child(4) {
+.bank-statement-table td:nth-child(5),
+.bank-statement-table th:nth-child(5),
+.bank-statement-table tfoot td:nth-child(5) {
   text-align: right;
 }
 
@@ -2147,15 +2147,15 @@ a {
   min-width: 92px;
 }
 
-.data-dashboard-table td:nth-child(n+3):nth-child(-n+11),
-.data-dashboard-table th:nth-child(n+3):nth-child(-n+11),
-.data-dashboard-table tfoot td:nth-child(n+3):nth-child(-n+11) {
+.data-dashboard-table td:nth-child(n+4):nth-child(-n+12),
+.data-dashboard-table th:nth-child(n+4):nth-child(-n+12),
+.data-dashboard-table tfoot td:nth-child(n+4):nth-child(-n+12) {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-.data-dashboard-table td:nth-child(8),
-.data-dashboard-table th:nth-child(8) {
+.data-dashboard-table td:nth-child(9),
+.data-dashboard-table th:nth-child(9) {
   text-align: left;
 }
 
@@ -2488,10 +2488,371 @@ body[data-view="data-dashboard"] .sheet-style .table-cell-muted {
   body[data-view="data-dashboard"] .sheet-style { font-size: .76rem; }
   body[data-view="data-dashboard"] .sheet-style th,
   body[data-view="data-dashboard"] .sheet-style td { padding: 6px 5px; }
-  body[data-view="data-dashboard"] .sheet-style td:first-child .table-cell-muted { display: none; }
+  body[data-view="data-dashboard"] .sheet-style td:nth-child(2) .table-cell-muted { display: none; }
 }
 
 @media (max-width: 1320px) {
   body[data-view="data-dashboard"] .table-wrap { overflow-x: auto; }
   body[data-view="data-dashboard"] .sheet-style { min-width: 1000px; }
+}
+
+.statement-button-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ---------- Payments insights ---------- */
+
+.payments-insights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+@media (max-width: 900px) {
+  .payments-insights { grid-template-columns: minmax(0, 1fr); }
+}
+
+.metric-card.tone-blue { border-top: 4px solid #1f4e79; }
+.metric-card.tone-green { border-top: 4px solid #38761d; }
+.metric-card.tone-red { border-top: 4px solid #980000; }
+.metric-card.tone-orange { border-top: 4px solid #ff9900; }
+
+.bar-list {
+  display: grid;
+  gap: 9px;
+  padding: 4px 2px 2px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 170px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  font-size: .85rem;
+}
+
+.bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.bar-track {
+  height: 14px;
+  border-radius: 7px;
+  background: #e9eef5;
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #2b6aa3, #38761d);
+}
+
+.bar-value {
+  min-width: 110px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #1f4e79;
+}
+
+.payments-filter-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.small-button {
+  padding: 3px 12px;
+  min-height: 0;
+  font-size: .78rem;
+}
+
+/* ---------- Bank statement history ---------- */
+
+.history-table td,
+.history-table th {
+  white-space: nowrap;
+  vertical-align: middle;
+  padding: 8px 12px;
+}
+
+.history-table tr.is-open td {
+  background: #eef6ff;
+}
+
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.link-button {
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--red, #b42318);
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-button:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
+.completed-details {
+  margin-top: 12px;
+}
+
+.completed-details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: .85rem;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+/* ---------- Statement entry filters & links ---------- */
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-chip {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-chip span {
+  margin-left: 4px;
+  color: var(--muted);
+}
+
+.filter-chip.active {
+  border-color: #1f4e79;
+  background: #1f4e79;
+  color: #fff;
+}
+
+.filter-chip.active span {
+  color: #cfe0f1;
+}
+
+.row-link {
+  margin-left: 6px;
+  font-size: .78rem;
+  font-weight: 600;
+  color: #1f4e79;
+  text-decoration: underline;
+}
+
+.link-button.neutral {
+  color: #1f4e79;
+}
+
+.panel-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+button.status-toggle {
+  border: 1px dashed currentColor;
+  font: inherit;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  cursor: pointer;
+}
+
+button.status-toggle:hover:not(:disabled) {
+  border-style: solid;
+  filter: brightness(.96);
+}
+
+.panel-head-actions { flex-wrap: nowrap; }
+@media (max-width: 1100px) { .panel-head-actions { flex-wrap: wrap; } }
+
+.data-table .row-number {
+  width: 44px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+
+/* Automatic row numbers: follow filters because hidden rows are not counted. */
+table.numbered tbody { counter-reset: rown; }
+table.numbered tbody tr:not(.hidden) { counter-increment: rown; }
+table.numbered td.row-number::before { content: counter(rown); }
+.data-table th.row-number, .data-table td.row-number { width: 40px; padding-left: 8px; padding-right: 8px; text-align: right; color: var(--muted); }
+
+.sheet-style thead th.row-number { color: #fff; text-align: center; }
+.sheet-style td.row-number { text-align: center; }
+body[data-view="data-dashboard"] .sheet-style .row-number { width: 30px; min-width: 0; padding-left: 4px; padding-right: 4px; }
+@media (max-width: 1500px) {
+  body[data-view="data-dashboard"] .sheet-style th,
+  body[data-view="data-dashboard"] .sheet-style td { padding-left: 4px; padding-right: 4px; }
+  body[data-view="data-dashboard"] .sheet-style th.th-note { min-width: 110px; }
+  body[data-view="data-dashboard"] .sheet-style td:nth-child(3) { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+}
+
+@media (max-width: 1400px) {
+  body[data-view="data-dashboard"] .sheet-style { font-size: .72rem; }
+  body[data-view="data-dashboard"] .sheet-style thead th { font-size: .66rem; }
+  body[data-view="data-dashboard"] .sheet-style th,
+  body[data-view="data-dashboard"] .sheet-style td { padding-left: 3px; padding-right: 3px; }
+  body[data-view="data-dashboard"] .batch-chip { padding: 1px 5px; font-size: .64rem; }
+  body[data-view="data-dashboard"] .sheet-style th.th-note { min-width: 96px; }
+}
+
+.fleet-table td, .fleet-table th { vertical-align: middle; padding: 9px 12px; }
+.fleet-table td.amount-cell, .fleet-table th:last-child, .fleet-table tfoot td:last-child { text-align: right; }
+.fleet-table tfoot td { font-weight: 800; }
+
+.batch-filter-row { display: flex; align-items: center; gap: 12px; margin: 4px 0 12px; flex-wrap: wrap; }
+.batch-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.batch-chip.toggle { border: 1px solid transparent; font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; padding: 4px 12px; }
+.batch-chip.toggle span { margin-left: 4px; opacity: .7; }
+.batch-chip.toggle.all { background: #e9eef5; color: #1f4e79; }
+.batch-chip.toggle.active { border-color: currentColor; box-shadow: 0 0 0 2px rgba(31, 78, 121, .18); }
+.batch-chip.toggle.dim { opacity: .55; }
+
+.for-month-select {
+  max-width: 230px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: .76rem;
+}
+
+.late-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: .85rem; font-weight: 600; color: #1f4e79; cursor: pointer; }
+.late-note { font-size: .68rem; line-height: 1.1; color: #a85a00; }
+.bank-statement-table td[data-cell="sync"] { white-space: normal; }
+
+.alias-summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; padding: 2px 0 10px; }
+.alias-panel details:not([open]) .alias-summary { padding-bottom: 0; }
+
+.sheet-check-table td, .sheet-check-table th { vertical-align: middle; padding: 8px 12px; }
+.sheet-check-table td:nth-child(5) { white-space: normal; min-width: 320px; }
+
+/* ---------- Bank Statements: use the full page width and let flexible columns wrap, so nothing scrolls sideways ---------- */
+
+body[data-view="bank-statements"] .content {
+  max-width: none;
+  padding: 20px 20px 40px;
+}
+
+.data-table.bank-statement-table td,
+.data-table.bank-statement-table th,
+.data-table.history-table td,
+.data-table.history-table th,
+.data-table.sheet-check-table td {
+  white-space: normal;
+}
+
+/* dates, amounts and buttons stay whole */
+.data-table.bank-statement-table td:nth-child(2),
+.data-table.bank-statement-table td:nth-child(5),
+.data-table.history-table .history-actions,
+.data-table.history-table td:nth-child(1) {
+  white-space: nowrap;
+}
+
+.bank-statement-table .biker-select {
+  width: 100%;
+  min-width: 140px;
+  max-width: 210px;
+}
+
+.bank-statement-table .for-month-select {
+  max-width: 165px;
+}
+
+.sync-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.bank-statement-table td[data-cell="status"] {
+  min-width: 150px;
+  max-width: 230px;
+}
+
+.bank-statement-table .name-hint {
+  white-space: normal;
+}
+
+.data-table.bank-statement-table,
+.data-table.history-table {
+  min-width: 0;
+}
+
+
+/* Bank Statements, compact pass: single-line rows, buttons whole, header buttons never break */
+.data-table.bank-statement-table td,
+.data-table.bank-statement-table th {
+  padding: 6px 8px;
+}
+
+.data-table.bank-statement-table td:nth-child(3) .table-cell-strong {
+  white-space: nowrap;
+}
+
+.bank-statement-table .name-hint {
+  display: block;
+  max-width: 190px;
+  font-size: .72rem;
+  line-height: 1.2;
+}
+
+.bank-statement-table .biker-select {
+  min-width: 130px;
+  max-width: 185px;
+}
+
+.bank-statement-table .for-month-select {
+  max-width: 150px;
+}
+
+.bank-statement-table td[data-cell="status"] {
+  min-width: 0;
+  max-width: 190px;
+}
+
+.panel-head-actions .ghost-button,
+.panel-head-actions .primary-button {
+  white-space: nowrap;
+}
+
+.panel-head-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 8px;
 }

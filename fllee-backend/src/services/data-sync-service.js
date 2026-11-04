@@ -1,7 +1,15 @@
-const { randomUUID } = require("node:crypto");
+const { createHash, randomUUID } = require("node:crypto");
 
 const { prisma } = require("../lib/prisma");
 const { calculateDashboard } = require("./dashboard-calculator");
+const {
+  SYNC_NOTE,
+  SheetError,
+  isAppNote,
+  refOf,
+  deleteSyncedPayment,
+  isConfigured: sheetConfigured
+} = require("./payments-sheet-service");
 
 const INTERVAL_SETTING_ID = "data_sync_interval_days";
 const DEFAULT_INTERVAL_DAYS = 2;
@@ -572,6 +580,10 @@ function listMonths(firstMonth, lastMonth) {
   return months;
 }
 
+async function getLatestSerializedRun() {
+  return serializeRun(await latestDataSyncRun());
+}
+
 async function getDataDashboard({ month, date } = {}) {
   const [latestRun, schedule, members, payments, snapshot] = await Promise.all([
     latestDataSyncRun(),
@@ -579,7 +591,7 @@ async function getDataDashboard({ month, date } = {}) {
     prisma.dataMember.findMany({ where: { isPresent: true }, orderBy: { sourceRowNumber: "asc" } }),
     prisma.dataPayment.findMany({
       where: { isPresent: true },
-      select: { dataMemberId: true, paymentDate: true, amountRwf: true }
+      select: { dataMemberId: true, paymentDate: true, amountRwf: true, referenceNote: true }
     }),
     prisma.dataDashboardSnapshot.findFirst({
       include: { rows: true },
@@ -657,19 +669,106 @@ async function getDataPayments() {
       amountRwf: item.amountRwf,
       paymentMethod: item.paymentMethod,
       referenceNote: item.referenceNote,
-      enteredBy: item.enteredBy
+      enteredBy: item.enteredBy,
+      // Only rows added by this app (tagged in Reference/Notes) may be deleted from the app.
+      deletable: isAppNote(item.referenceNote)
     }))
+  };
+}
+
+// A payment this app just wrote to the Google Sheet is recorded locally straight away (same key the
+// next sheet import computes), so it shows on the Payments page, with its Delete button, without waiting.
+async function recordSyncedPayment({ name, paymentDate, amountRwf, paymentMethod, sheetRow, note = SYNC_NOTE }) {
+  const normalizedName = normalizeName(name);
+  const member = await prisma.dataMember.findFirst({ where: { normalizedName, isPresent: true } });
+  if (!member) return null;
+  const fingerprint = createHash("sha256").update(JSON.stringify({
+    sourcePersonId: member.sourcePersonId,
+    normalizedName,
+    paymentDate,
+    amountRwf,
+    paymentMethod,
+    referenceNote: note,
+    enteredBy: ""
+  })).digest("hex");
+  const sourceKey = `${fingerprint}:1`;
+  const data = {
+    dataMemberId: member.id,
+    bikerId: member.bikerId,
+    paymentDate: new Date(`${paymentDate}T00:00:00.000Z`),
+    amountRwf,
+    paymentMethod,
+    referenceNote: note,
+    enteredBy: "",
+    sourceRowNumber: sheetRow || 0,
+    sourceFingerprint: fingerprint,
+    isPresent: true
+  };
+  return prisma.dataPayment.upsert({
+    where: { sourceKey },
+    update: data,
+    create: { id: randomUUID(), sourceKey, ...data }
+  });
+}
+
+async function deleteDataPayment(paymentId) {
+  const payment = await prisma.dataPayment.findUnique({
+    where: { id: paymentId },
+    include: { dataMember: true }
+  });
+  if (!payment || !payment.isPresent) {
+    return { statusCode: 404, body: { error: "Payment was not found." } };
+  }
+  if (!isAppNote(payment.referenceNote)) {
+    return { statusCode: 403, body: { error: "Only payments synced from this app can be deleted here." } };
+  }
+  if (!sheetConfigured()) {
+    return { statusCode: 503, body: { error: "Google Sheet syncing is not configured." } };
+  }
+
+  let sheetResult;
+  try {
+    sheetResult = await deleteSyncedPayment({
+      date: payment.paymentDate.toISOString().slice(0, 10),
+      name: payment.dataMember.sourceName,
+      amount: payment.amountRwf,
+      rowHint: payment.sourceRowNumber,
+      ref: refOf(payment.referenceNote)
+    });
+  } catch (error) {
+    if (error instanceof SheetError) {
+      return { statusCode: error.statusCode === 403 || error.statusCode === 409 ? error.statusCode : 502, body: { error: error.message } };
+    }
+    throw error;
+  }
+
+  await prisma.dataPayment.delete({ where: { id: payment.id } });
+  return {
+    statusCode: 200,
+    body: {
+      ...sheetResult,
+      id: payment.id,
+      payment: {
+        date: payment.paymentDate.toISOString().slice(0, 10),
+        amount: payment.amountRwf,
+        name: payment.dataMember.sourceName,
+        ref: refOf(payment.referenceNote)
+      }
+    }
   };
 }
 
 module.exports = {
   applyDataSyncRun,
   createDataSyncRun,
+  deleteDataPayment,
   failDataSyncRun,
   getDataDashboard,
   getDataPayments,
+  getLatestSerializedRun,
   getDataSyncIntervalDays,
   getDataSyncSchedule,
+  recordSyncedPayment,
   saveDataSyncIntervalDays,
   serializeRun
 };
