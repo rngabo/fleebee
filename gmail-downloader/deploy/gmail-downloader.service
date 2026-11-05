@@ -1,0 +1,16 @@
+[Unit]
+Description=Fleebee Gmail bank-statement downloader (one polling pass)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/fleebee/current/gmail-downloader
+Environment=PATH=%h/fleebee/runtime/node/bin:/usr/local/bin:/usr/bin:/bin
+# Optional overrides (label, sender, directories); contains no secrets. The OAuth client and token live in ~/fleebee/shared/gmail/.
+EnvironmentFile=-%h/fleebee/shared/gmail-downloader.env
+ExecStart=%h/fleebee/runtime/node/bin/node src/run-once.js
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStartSec=300

@@ -13,10 +13,13 @@ class StatementSummary(BaseModel):
     id: uuid.UUID
     bank_name: str
     display_name: str | None = None
+    file_hash: str | None = None
     remaining_count: int | None = None
     synced_count: int | None = None
     skipped_count: int | None = None
     completed_at: datetime | None = None
+    source: str = "upload"
+    received_at: datetime | None = None
     can_discard: bool | None = None
     account_holder_name: str | None
     account_number: str | None

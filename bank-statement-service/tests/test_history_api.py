@@ -399,3 +399,32 @@ def test_an_entry_wrongly_marked_already_in_sheet_can_be_reopened(client):
     assert entry["sync_status"] == "PENDING"
     api.post(f"/api/v1/transactions/{ids[1]}/settle", json={"outcome": "SYNCED", "biker_name": "A B"}, headers=HEADERS)
     assert api.post(f"/api/v1/transactions/{ids[1]}/reopen", headers=HEADERS).status_code == 409      # a row the app wrote stays protected
+
+
+def test_statements_remember_whether_they_came_from_an_upload_or_from_email(client, monkeypatch):
+    http, session, tmp_path = client
+    uploaded = seed(session, tmp_path)
+
+    def fake_process(db, path, filename, file_hash):
+        statement = Statement(
+            file_hash=file_hash, original_filename=filename, display_name="BK-3215_nov-nov", stored_path=str(path), bank_name="Bank of Kigali",
+            period_start=date(2026, 11, 5), period_end=date(2026, 11, 5), status="COMPLETED", warnings_json="[]", processing_duration_ms=1, incoming_count=0,
+        )
+        db.add(statement)
+        db.commit()
+        return statement, []
+
+    monkeypatch.setattr("app.api.routes.statements.process_statement", fake_process)
+    response = http.post(
+        "/api/v1/statements/upload",
+        headers=HEADERS,
+        files={"file": ("Statement_24025.pdf", b"%PDF-1.4 fake", "application/pdf")},
+        data={"source": "email", "received_at": "2026-11-05T14:10:26.000Z"},
+    )
+    assert response.status_code == 201, response.text
+    by_name = {item["display_name"]: item for item in http.get("/api/v1/statements", headers=HEADERS).json()["items"]}
+    assert by_name["BK-3215_nov-nov"]["source"] == "email"
+    assert by_name["BK-3215_nov-nov"]["received_at"].startswith("2026-11-05T14:10:26")
+    assert by_name["BK-3215_may-oct"]["source"] == "upload"      # the default: a manual upload
+    assert by_name["BK-3215_may-oct"]["received_at"] is None
+    assert uploaded

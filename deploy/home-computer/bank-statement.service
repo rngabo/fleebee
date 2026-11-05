@@ -1,0 +1,20 @@
+[Unit]
+Description=Fleebee bank statement service (PDF reading, SQLite)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/fleebee/current/bank-statement-service
+EnvironmentFile=%h/fleebee/shared/bank-statement.env
+Environment=PYTHONPATH=%h/fleebee/current/bank-statement-service
+UMask=0077
+ExecStartPre=%h/fleebee/runtime/bank-venv/bin/python scripts/init_db.py
+# Local only: the Fleebee app on this machine is the sole client.
+ExecStart=%h/fleebee/runtime/bank-venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8100
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

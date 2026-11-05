@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll Gmail for new BK bank statements every 5 minutes
+
+[Timer]
+# After a reboot: first pass two minutes after the user manager starts (linger keeps it running without a login),
+# then five minutes after each pass finishes.
+OnBootSec=2min
+OnUnitInactiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

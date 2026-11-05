@@ -768,6 +768,7 @@ module.exports = {
   getLatestSerializedRun,
   getDataSyncIntervalDays,
   getDataSyncSchedule,
+  latestDataSyncRun,
   recordSyncedPayment,
   saveDataSyncIntervalDays,
   serializeRun

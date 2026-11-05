@@ -2797,3 +2797,47 @@ The big recent wins were bundle automation, persistent ADB recovery on `.50`, ni
 - Real data: Aug-Nov -> 14 riders (Gilbert and Habarurema inactive, Pacifique left out); Mar-Oct -> 15 (Pacifique in);
   no statement -> the 12 active ones. Aug-Nov "Gilbert" deposits now match Turajyayo Gilbert and Sync finds their rows.
 - Tests: rider-matching 12 (incl. the Gilbert/Eric examples), fllee-backend 54, bank service 43. Not deployed.
+
+## 2026-11-05 — Current Fleebee release deployed to the home computer
+
+- Synced the current local release to `richard@192.168.1.50:~/fleebee/current` using the repository deployment
+  layout and exclusions. The live `shared/.env`, `shared/fleebee.db`, installed `node_modules`, Fine Monitor env,
+  and Data Sync service-account credentials were preserved.
+- The local and remote backend `package-lock.json` hashes already matched, so no dependency reinstall was needed.
+- Refreshed the user-level `fleebee.service`, reloaded systemd, and restarted Fleebee. Prisma reported that the live
+  SQLite database was already in sync and regenerated Prisma Client successfully.
+- Validated after the restart: `fleebee.service` is active and enabled, `caddy-fleebee.service` remains active,
+  `/health` reports `status: ok` with SQLite storage, `/` responds with the expected login redirect, and the service
+  journal has no warnings or errors since the restart.
+- Deployment note: the development machine's system SSH include has unsafe ownership, so this deployment used
+  `ssh -F /dev/null` while retaining the helper script's connection options and file exclusions.
+
+## 2026-11-05 — Gmail downloader OAuth public pages prepared
+
+- Added upload-ready static pages under `oauth-public-pages/fleebee-statement-downloader/`: an application homepage
+  and a nested `privacy/` policy page for the private Gmail bank-statement attachment downloader.
+- The pages describe the restricted owner-operated workflow, Gmail read-only use, local credential and attachment
+  storage, retention/deletion, revocation, non-sharing, and Google API Services User Data Policy Limited Use terms.
+- Both pages use the intended public `esonga.com` URLs and link to each other. They have not yet been uploaded to
+  `esonga.com`; OAuth branding must not reference the URLs until both public HTTPS pages are reachable.
+- Added WordPress Custom HTML fragments under `oauth-public-pages/wordpress/` after the live WordPress pages were
+  created. These fragments use the site's current `/index.php/fleebee-statement-downloader/` homepage and nested
+  `/policy/` URL and still need to be pasted into the corresponding published pages.
+
+## 2026-11-05 - Gmail statements arrive on the Bank Statements page
+
+- Gmail downloader (`gmail-downloader/`, read-only OAuth, label `Fleebee/BankStatements`, sender `bkebanking@bk.rw`, systemd user timer every 5 min on 192.168.1.50) authorized and verified with two real BK emails; Gmail filter now applies the label.
+- Downloader now records subject / arrival time / attachment name per PDF (`state.json`); `src/backfill.js` filled the two existing records.
+- Backend: `email-statements-service.js` (`GET /api/bank-statements/email`, `POST /api/bank-statements/email/:id/open`), env `BANK_EMAIL_STATE_FILE` / `BANK_EMAIL_INBOX_DIR`, docker mount `./.email-inbox`.
+- Bank service: `statements.source` (`upload`|`email`) and `received_at` (migration `20261111_01`), `file_hash` exposed in the summary.
+- Page: "Arrived by email" panel (name, period, arrived, New/Opened, Open) and ✉ Email / ⬆ Uploaded labels in Saved statements.
+- Validated: downloader 15 tests, backend 62, bank service 44 (+1 skipped); real PDF opened end to end on the local stack (statement tagged email, list switched to Opened); headless Chrome render checked.
+- Deployed to the home computer the same day: bank-statement service installed there (no Docker/Postgres/sudo: Python venv bootstrapped with get-pip, SQLite built from the models and stamped at head by `scripts/init_db.py`, systemd user unit `bank-statement.service` on 127.0.0.1:8100, API key generated on the target), app code synced, `fleebee.service` restarted; backups `~/fleebee/backups/*before-bank-email-20261105-164426*`. Open items: sheet writing is not configured on the home app (no PAYMENTS_SHEET service-account settings), and its bank database starts empty (local history/aliases were not copied).
+
+## 2026-11-05 - Overview becomes a control center
+
+- New `GET /api/system/overview` (`system-status-service.js`): one card per component (Fleebee app, bank statement service, Gmail downloader, Google Sheet import, Google Sheet writing, fine monitor, SMS phone gateway, scheduled SMS) with state ok/warn/down/off, plus a "Timers & schedules" table (repeat interval, last run, next run).
+- Gmail downloader now writes a heartbeat (`status.json` beside `state.json`: last check, outcome, authorization state, counts; no secrets), also on failure, so the card can show "Authorization needed" or "timer stopped" (no check for 3 intervals; interval from `GMAIL_POLL_MINUTES`, default 5).
+- Overview page: Control center section on top (auto-refresh 30 s), Recent SMS collapsed behind a "Show recent SMS" button.
+- Validated: downloader 17 tests, backend 67 tests (5 new for the Gmail card), headless Chrome render of healthy and failing states. Overview later reorganized (Server Health / Phone Gateway / Bundle Check as a card row under the control center, full page width).
+- Deployed to the home computer 2026-11-05 17:10 (backups `~/fleebee/backups/*before-control-center-20261105-170926*`): downloader with heartbeat, app synced and restarted; home control center shows Gmail checking, bank service OK; sheet writing not configured and the phone gateway reads Offline there.

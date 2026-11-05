@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fleebee Overview</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1626'/%3E%3Cpath d='M19 5L9.5 14.5M19 5l-5.5 14-2-6.5L5 10.5z' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/assets/css/styles.css">
+  <link rel="stylesheet" href="/assets/css/styles.css?v=38">
 </head>
 <body data-view="overview">
   <div class="app-shell">
@@ -157,7 +157,7 @@
       <header class="main-header">
         <div>
           <h1>Overview</h1>
-          <p class="header-sub">System health and the latest SMS activity at a glance.</p>
+          <p class="header-sub">Control center: system health, timers and the Gmail connection at a glance.</p>
         </div>
         <div class="header-actions">
           <span id="phoneBadge" class="badge badge-warn">Checking phone</span>
@@ -191,6 +191,149 @@
           </div>
         </section>
 
+        <section id="controlCenter" class="panel control-center" aria-label="Control center">
+          <div class="panel-head">
+            <div>
+              <h2>Control center</h2>
+              <p id="ccSummary" class="mini-note cc-summary">Checking the system…</p>
+            </div>
+            <div class="panel-head-actions"><span id="ccUpdated" class="mini-note"></span><button id="ccRefreshButton" class="ghost-button" type="button">Refresh</button></div>
+          </div>
+          <div id="ccServices" class="cc-grid"></div>
+          <h3 class="cc-subhead">Timers &amp; schedules</h3>
+          <div class="table-wrap">
+            <table class="data-table cc-timers">
+              <thead><tr><th>Timer</th><th>Repeats</th><th>Last run</th><th>Next run</th><th>Status</th></tr></thead>
+              <tbody id="ccTimersBody"><tr><td colspan="5" class="empty-table">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="system-panels" aria-label="Server, phone and bundle details">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Server Health</h2>
+              <p class="mini-note">The Fleebee backend on the home computer.</p>
+            </div>
+          </div>
+          <dl class="status-list">
+            <div>
+              <dt>Status</dt>
+              <dd id="serverStatusValue">-</dd>
+            </div>
+            <div>
+              <dt>Service</dt>
+              <dd id="serverServiceValue">-</dd>
+            </div>
+            <div>
+              <dt>Storage</dt>
+              <dd id="serverStorageValue">-</dd>
+            </div>
+            <div>
+              <dt>Last checked</dt>
+              <dd id="serverUpdatedValue">-</dd>
+            </div>
+            <div>
+              <dt>Bundle auto-check</dt>
+              <dd id="serverBundlePolicyValue">-</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="panel anchor-section" id="gateway">
+          <div class="panel-head">
+            <div>
+              <h2>Phone Gateway</h2>
+              <p class="mini-note">The Android phone that sends the SMS.</p>
+            </div>
+          </div>
+          <dl class="status-list">
+            <div>
+              <dt>Connection</dt>
+              <dd id="phoneOnlineValue">-</dd>
+            </div>
+            <div>
+              <dt>Location</dt>
+              <dd id="phoneLocationValue">-</dd>
+            </div>
+            <div>
+              <dt>Network</dt>
+              <dd id="phoneNetworkValue">-</dd>
+            </div>
+            <div>
+              <dt>Last heartbeat</dt>
+              <dd id="phoneHeartbeatValue">-</dd>
+            </div>
+            <div>
+              <dt>ADB</dt>
+              <dd id="phoneAdbValue">-</dd>
+            </div>
+            <div>
+              <dt>Battery policy</dt>
+              <dd id="phoneBatteryValue">-</dd>
+            </div>
+            <div>
+              <dt>SMS route</dt>
+              <dd id="phoneRouteValue">-</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="panel anchor-section" id="bundles">
+          <div class="panel-head">
+            <div>
+              <h2>Bundle Check</h2>
+              <p class="mini-note">The phone runs <code>*131#</code> automatically and stores the latest USSD reply here.</p>
+            </div>
+          </div>
+          <dl class="status-list">
+            <div>
+              <dt>Status</dt>
+              <dd id="bundleStatusValue">-</dd>
+            </div>
+            <div>
+              <dt>Last checked</dt>
+              <dd id="bundleCheckedValue">-</dd>
+            </div>
+            <div id="bundlePlanRow" class="hidden">
+              <dt>Bundle plan</dt>
+              <dd id="bundlePlanValue">-</dd>
+            </div>
+            <div id="bundleVoiceRow" class="hidden">
+              <dt>Voice bundle</dt>
+              <dd id="bundleVoiceValue">-</dd>
+            </div>
+            <div>
+              <dt>SMS bundle</dt>
+              <dd id="bundleSmsValue">-</dd>
+            </div>
+            <div>
+              <dt>Data bundle</dt>
+              <dd id="bundleDataValue">-</dd>
+            </div>
+            <div id="bundleBuyAgainRow" class="hidden">
+              <dt>Buy again</dt>
+              <dd id="bundleBuyAgainValue">-</dd>
+            </div>
+            <div id="bundleSmsUsageRow" class="hidden">
+              <dt>SMS usage</dt>
+              <dd id="bundleSmsUsageValue">-</dd>
+            </div>
+            <div id="bundleDetailsActionRow">
+              <dt>More details</dt>
+              <dd class="bundle-detail-actions">
+                <button id="bundleDetailsToggle" class="ghost-button compact-button" type="button">View full message</button>
+              </dd>
+            </div>
+            <div id="bundleDetailsRow" class="hidden">
+              <dt>Full USSD</dt>
+              <dd id="bundleDetailsValue" class="status-pre">-</dd>
+            </div>
+          </dl>
+        </section>
+        </div>
+
         <section class="panel">
           <div class="panel-head">
             <div>
@@ -215,170 +358,46 @@
           </div>
         </section>
 
-        <div class="home-grid">
-          <div class="stack-col">
-            <section class="panel">
-              <div class="panel-head">
-                <div>
-                  <h2>Server Health</h2>
-                  <p class="mini-note">The Fleebee backend on the home computer.</p>
-                </div>
-              </div>
-              <dl class="status-list">
-                <div>
-                  <dt>Status</dt>
-                  <dd id="serverStatusValue">-</dd>
-                </div>
-                <div>
-                  <dt>Service</dt>
-                  <dd id="serverServiceValue">-</dd>
-                </div>
-                <div>
-                  <dt>Storage</dt>
-                  <dd id="serverStorageValue">-</dd>
-                </div>
-                <div>
-                  <dt>Last checked</dt>
-                  <dd id="serverUpdatedValue">-</dd>
-                </div>
-                <div>
-                  <dt>Bundle auto-check</dt>
-                  <dd id="serverBundlePolicyValue">-</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section class="panel anchor-section" id="gateway">
-              <div class="panel-head">
-                <div>
-                  <h2>Phone Gateway</h2>
-                  <p class="mini-note">The Android phone that sends the SMS.</p>
-                </div>
-              </div>
-              <dl class="status-list">
-                <div>
-                  <dt>Connection</dt>
-                  <dd id="phoneOnlineValue">-</dd>
-                </div>
-                <div>
-                  <dt>Location</dt>
-                  <dd id="phoneLocationValue">-</dd>
-                </div>
-                <div>
-                  <dt>Network</dt>
-                  <dd id="phoneNetworkValue">-</dd>
-                </div>
-                <div>
-                  <dt>Last heartbeat</dt>
-                  <dd id="phoneHeartbeatValue">-</dd>
-                </div>
-                <div>
-                  <dt>ADB</dt>
-                  <dd id="phoneAdbValue">-</dd>
-                </div>
-                <div>
-                  <dt>Battery policy</dt>
-                  <dd id="phoneBatteryValue">-</dd>
-                </div>
-                <div>
-                  <dt>SMS route</dt>
-                  <dd id="phoneRouteValue">-</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section class="panel anchor-section" id="bundles">
-              <div class="panel-head">
-                <div>
-                  <h2>Bundle Check</h2>
-                  <p class="mini-note">The phone runs <code>*131#</code> automatically and stores the latest USSD reply here.</p>
-                </div>
-              </div>
-              <dl class="status-list">
-                <div>
-                  <dt>Status</dt>
-                  <dd id="bundleStatusValue">-</dd>
-                </div>
-                <div>
-                  <dt>Last checked</dt>
-                  <dd id="bundleCheckedValue">-</dd>
-                </div>
-                <div id="bundlePlanRow" class="hidden">
-                  <dt>Bundle plan</dt>
-                  <dd id="bundlePlanValue">-</dd>
-                </div>
-                <div id="bundleVoiceRow" class="hidden">
-                  <dt>Voice bundle</dt>
-                  <dd id="bundleVoiceValue">-</dd>
-                </div>
-                <div>
-                  <dt>SMS bundle</dt>
-                  <dd id="bundleSmsValue">-</dd>
-                </div>
-                <div>
-                  <dt>Data bundle</dt>
-                  <dd id="bundleDataValue">-</dd>
-                </div>
-                <div id="bundleBuyAgainRow" class="hidden">
-                  <dt>Buy again</dt>
-                  <dd id="bundleBuyAgainValue">-</dd>
-                </div>
-                <div id="bundleSmsUsageRow" class="hidden">
-                  <dt>SMS usage</dt>
-                  <dd id="bundleSmsUsageValue">-</dd>
-                </div>
-                <div id="bundleDetailsActionRow">
-                  <dt>More details</dt>
-                  <dd class="bundle-detail-actions">
-                    <button id="bundleDetailsToggle" class="ghost-button compact-button" type="button">View full message</button>
-                  </dd>
-                </div>
-                <div id="bundleDetailsRow" class="hidden">
-                  <dt>Full USSD</dt>
-                  <dd id="bundleDetailsValue" class="status-pre">-</dd>
-                </div>
-              </dl>
-            </section>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Recent SMS</h2>
+              <p class="mini-note">Message text is hidden for privacy — use the eye to peek (it re-hides after 5 seconds).</p>
+            </div>
+            <button id="recentToggleButton" class="ghost-button" type="button" aria-expanded="false" aria-controls="recentBody">Show recent SMS</button>
           </div>
-
-          <section class="panel">
-            <div class="panel-head">
-              <div>
-                <h2>Recent SMS</h2>
-                <p class="mini-note">Message text is hidden for privacy — use the eye to peek (it re-hides after 5 seconds).</p>
-              </div>
+          <div id="recentBody" class="hidden">
+          <div class="table-wrap">
+            <table class="data-table recent-table">
+              <thead>
+                <tr>
+                  <th>Biker</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Message</th>
+                  <th>Sent</th>
+                  <th aria-label="Actions"></th>
+                </tr>
+              </thead>
+              <tbody id="recentTableBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination-bar">
+            <label class="page-size">
+              Rows
+              <select id="recentPageSizeSelect">
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+              </select>
+            </label>
+            <div class="page-controls">
+              <button id="recentPrevButton" class="ghost-button" type="button">Previous</button>
+              <span id="recentPageLabel" class="mini-note">Page 1 of 1</span>
+              <button id="recentNextButton" class="ghost-button" type="button">Next</button>
             </div>
-            <div class="table-wrap">
-              <table class="data-table recent-table">
-                <thead>
-                  <tr>
-                    <th>Biker</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th>Message</th>
-                    <th>Sent</th>
-                    <th aria-label="Actions"></th>
-                  </tr>
-                </thead>
-                <tbody id="recentTableBody"></tbody>
-              </table>
-            </div>
-            <div class="pagination-bar">
-              <label class="page-size">
-                Rows
-                <select id="recentPageSizeSelect">
-                  <option value="5" selected>5</option>
-                  <option value="10">10</option>
-                </select>
-              </label>
-              <div class="page-controls">
-                <button id="recentPrevButton" class="ghost-button" type="button">Previous</button>
-                <span id="recentPageLabel" class="mini-note">Page 1 of 1</span>
-                <button id="recentNextButton" class="ghost-button" type="button">Next</button>
-              </div>
-            </div>
-          </section>
-        </div>
+          </div>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -533,5 +552,6 @@
 
   <script src="/app-config.js"></script>
   <script src="/assets/js/app.js"></script>
+  <script src="/assets/js/control-center.js?v=1"></script>
 </body>
 </html>

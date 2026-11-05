@@ -4,7 +4,9 @@ import json
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -35,6 +37,14 @@ def _summary_with_counts(db: Session, statement: Statement) -> StatementSummary:
     return summary
 
 
+def _parse_received_at(value: str | None) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat((value or "").replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
 def _transactions_for(db: Session, statement_id: uuid.UUID) -> list[Transaction]:
     return list(
         db.scalars(
@@ -49,6 +59,8 @@ def _transactions_for(db: Session, statement_id: uuid.UUID) -> list[Transaction]
 @router.post("/upload", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_statement(
     file: UploadFile = File(...),
+    source: str = Form("upload"),
+    received_at: str | None = Form(None),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> UploadResponse:
@@ -85,6 +97,11 @@ async def upload_statement(
         db.rollback()
         stored_path.unlink(missing_ok=True)
         raise
+    # process_statement only returns a statement it just created (duplicates raise above), so tagging it is safe.
+    if source == "email":
+        statement.source = "email"
+        statement.received_at = _parse_received_at(received_at)
+        db.commit()
     return UploadResponse(
         statement_id=statement.id,
         status=statement.status,

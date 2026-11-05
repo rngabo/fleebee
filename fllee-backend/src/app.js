@@ -55,6 +55,8 @@ const {
   verifyBankStatement,
   uploadBankStatement
 } = require("./services/bank-statement-service");
+const { listEmailStatements, openEmailStatement } = require("./services/email-statements-service");
+const { buildSystemOverview } = require("./services/system-status-service");
 const {
   completeFineCheckRun,
   createFineCheckRun,
@@ -437,6 +439,11 @@ function createAppServer() {
         }
       }
 
+      if (req.method === "GET" && url.pathname === "/api/system/overview") {
+        sendJson(res, 200, await buildSystemOverview());
+        return;
+      }
+
       if (req.method === "GET" && url.pathname === "/api/dashboard") {
         sendJson(res, 200, await buildDashboardResponse());
         return;
@@ -637,6 +644,18 @@ function createAppServer() {
 
       if (req.method === "POST" && url.pathname === "/api/bank-statements/upload") {
         const response = await uploadBankStatement(req);
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/bank-statements/email") {
+        const response = await listEmailStatements();
+        sendJson(res, response.statusCode, response.body);
+        return;
+      }
+
+      if (req.method === "POST" && /^\/api\/bank-statements\/email\/[^/]+\/open$/.test(url.pathname)) {
+        const response = await openEmailStatement(decodeURIComponent(url.pathname.split("/")[4]));
         sendJson(res, response.statusCode, response.body);
         return;
       }

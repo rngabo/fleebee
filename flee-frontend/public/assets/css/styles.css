@@ -2856,3 +2856,46 @@ body[data-view="bank-statements"] .content {
   justify-content: flex-end;
   row-gap: 8px;
 }
+
+/* Where a statement came from */
+.source-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .02em; vertical-align: middle; white-space: nowrap; }
+.source-badge.email { background: #e0ecff; color: #1d4ed8; border: 1px solid #b6cffb; }
+.source-badge.upload { background: #eef0f3; color: #4b5563; border: 1px solid #d5d9e0; }
+.block-note { display: block; margin-top: 2px; font-weight: 400; }
+.email-panel { border-left: 4px solid #1d4ed8; }
+
+/* Overview control center */
+.control-center { border-top: 4px solid #1d4ed8; }
+.cc-summary.cc-good { color: #15803d; font-weight: 600; }
+.cc-summary.cc-warn { color: #b45309; font-weight: 600; }
+.cc-summary.cc-bad { color: #b91c1c; font-weight: 600; }
+.cc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; margin: 6px 0 18px; }
+.cc-card { border: 1px solid #dfe4ec; border-left-width: 5px; border-radius: 10px; padding: 12px 14px; background: #fff; display: flex; flex-direction: column; gap: 6px; }
+.cc-card.cc-ok { border-left-color: #16a34a; }
+.cc-card.cc-warn { border-left-color: #d97706; background: #fffbf2; }
+.cc-card.cc-down { border-left-color: #dc2626; background: #fff6f6; }
+.cc-card.cc-off { border-left-color: #9ca3af; background: #f7f8fa; }
+.cc-card-head { display: flex; align-items: center; gap: 8px; }
+.cc-card-head h3 { margin: 0; font-size: 14px; flex: 1; }
+.cc-dot { width: 10px; height: 10px; border-radius: 50%; background: #9ca3af; flex: none; }
+.cc-ok .cc-dot { background: #16a34a; } .cc-warn .cc-dot { background: #d97706; } .cc-down .cc-dot { background: #dc2626; }
+.cc-state { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #4b5563; }
+.cc-headline { margin: 0; font-weight: 700; font-size: 15px; }
+.cc-details { margin: 0; display: grid; gap: 3px; }
+.cc-details div { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; border-top: 1px dashed #e5e7eb; padding-top: 3px; }
+.cc-details dt { color: #6b7280; flex: none; }
+.cc-details dd { margin: 0; text-align: right; word-break: break-word; }
+.cc-link { font-size: 12.5px; margin-top: auto; padding-top: 4px; }
+.cc-subhead { margin: 4px 0 8px; font-size: 14px; }
+.cc-pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.cc-pill.cc-ok { background: #dcfce7; color: #166534; } .cc-pill.cc-warn { background: #fef3c7; color: #92400e; }
+.cc-pill.cc-down { background: #fee2e2; color: #991b1b; } .cc-pill.cc-off { background: #eef0f3; color: #4b5563; }
+
+/* ---------- Overview: use the full page width, like the data pages ---------- */
+body[data-view="overview"] .content {
+  max-width: none;
+  padding: 20px 20px 40px;
+}
+
+/* Overview: server, phone and bundle panels sit in one row of cards right under the control center */
+.system-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 18px; align-items: stretch; }

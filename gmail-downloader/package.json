@@ -1,0 +1,12 @@
+{
+  "name": "fleebee-gmail-downloader",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Downloads BK internet-banking statement PDFs from a labelled Gmail folder (read-only access).",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "authorize": "node src/authorize.js",
+    "run": "node src/run-once.js",
+    "test": "node --test test/*.test.js"
+  }
+}

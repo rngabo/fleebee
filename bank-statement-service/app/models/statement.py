@@ -40,6 +40,9 @@ class Statement(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Discarded from the list but kept on record (rows, outcomes, name, file hash).
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    # Where the file came from: a manual upload, or the Gmail downloader (then received_at is when the email arrived).
+    source: Mapped[str] = mapped_column(String(16), default="upload", server_default="upload")
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     links: Mapped[list["StatementTransaction"]] = relationship(

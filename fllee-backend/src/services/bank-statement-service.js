@@ -723,6 +723,17 @@ async function withRegistrationCheck(response) {
   }
 }
 
+// After the bank service answered an upload: a file seen before shows its saved results, a new one shows the full statement.
+async function finishUpload(uploaded) {
+  if (uploaded.statusCode === 409 && uploaded.body?.statement_id) {
+    const existing = await getBankStatement(uploaded.body.statement_id);
+    if (existing.statusCode >= 400) return uploaded;
+    return { statusCode: 200, body: { ...existing.body, already_processed: true } };
+  }
+  if (uploaded.statusCode >= 400 || !uploaded.body?.statement_id) return uploaded;
+  return getBankStatement(uploaded.body.statement_id);
+}
+
 async function uploadBankStatement(req) {
   const headerError = validateUploadHeaders(req);
   if (headerError) return { statusCode: headerError.statusCode, body: { error: headerError.error } };
@@ -730,20 +741,11 @@ async function uploadBankStatement(req) {
   try {
     const body = await readUpload(req);
     if (!body.length) return { statusCode: 400, body: { error: "The uploaded file is empty." } };
-    const uploaded = await requestService("/api/v1/statements/upload", {
+    return await finishUpload(await requestService("/api/v1/statements/upload", {
       method: "POST",
       headers: { "Content-Type": req.headers["content-type"] },
       body
-    });
-    if (uploaded.statusCode === 409 && uploaded.body?.statement_id) {
-      // Same file uploaded before: show the saved results instead of failing.
-      const existing = await getBankStatement(uploaded.body.statement_id);
-      if (existing.statusCode >= 400) return uploaded;
-      return { statusCode: 200, body: { ...existing.body, already_processed: true } };
-    }
-    if (uploaded.statusCode >= 400 || !uploaded.body?.statement_id) return uploaded;
-    // The upload response only carries the new statement id; return the full statement.
-    return getBankStatement(uploaded.body.statement_id);
+    }));
   } catch (error) {
     return {
       statusCode: error.statusCode || 400,
@@ -761,6 +763,8 @@ async function getBankStatement(statementId) {
 }
 
 module.exports = {
+  finishUpload,
+  requestService,
   attachSourceStatements,
   wasRiderDuring,
   reopenUnmatchedRecorded,

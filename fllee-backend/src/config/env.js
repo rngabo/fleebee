@@ -115,6 +115,9 @@ const env = {
     "BANK_STATEMENT_MAX_UPLOAD_BYTES",
     10 * 1024 * 1024
   ),
+  // Statements fetched from Gmail by gmail-downloader: its state file (lists them) and the folder holding the PDFs.
+  BANK_EMAIL_STATE_FILE: stringFromEnv("BANK_EMAIL_STATE_FILE", ""),
+  BANK_EMAIL_INBOX_DIR: stringFromEnv("BANK_EMAIL_INBOX_DIR", ""),
   PAYMENTS_SHEET_ID: stringFromEnv(
     "PAYMENTS_SHEET_ID",
     "1yK5CDKJL6xIXmnKTYmM8YP-XfKt2SGbq0an3LlAX1xE"

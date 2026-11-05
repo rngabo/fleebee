@@ -853,11 +853,11 @@ async function loadHistory() {
         return `
         <tr${item.id === currentStatement.id ? ' class="is-open"' : ""}>
           <td class="row-number"></td>
-          <td><span class="table-cell-strong">${escapeHtml(item.display_name || "Statement")}</span></td>
+          <td><span class="table-cell-strong">${escapeHtml(item.display_name || "Statement")}</span> ${sourceBadge(item)}</td>
           <td>${escapeHtml(periodText(item.period_start, item.period_end))}</td>
           <td>${item.synced_count ?? 0} synced · ${item.skipped_count ?? 0} skipped · ${item.remaining_count ?? 0} pending</td>
           <td><span class="status-chip ${complete ? "sent" : "pending"}" title="${complete ? "Verified: nothing is left to do." : "Open this statement to finish it or to mark it as verified."}">${complete ? "Verified ✓" : "In progress"}</span></td>
-          <td>${escapeHtml(formatDateTime(item.created_at))}</td>
+          <td>${item.source === "email" && item.received_at ? `<span title="Arrived by email">${escapeHtml(formatDateTime(item.received_at))}</span><span class="mini-note block-note">arrived by email</span>` : `${escapeHtml(formatDateTime(item.created_at))}<span class="mini-note block-note">uploaded</span>`}</td>
           <td class="history-actions"><button class="ghost-button small-button" type="button" data-open-statement="${escapeHtml(item.id)}">Open</button>${canDiscard ? ` <button class="link-button" type="button" data-discard-statement="${escapeHtml(item.id)}" data-name="${escapeHtml(item.display_name || "")}" data-complete="${complete ? "1" : ""}" data-synced="${item.synced_count ?? 0}" data-pending="${item.remaining_count ?? 0}" title="${complete ? "Remove from this list. Its rows and outcomes stay on record." : item.synced_count ? "Remove from this list. What is already in the sheet stays on record." : "Nothing is in the sheet yet, so this statement is deleted completely."}">Discard</button>` : ""}</td>
         </tr>`;
       }).join("")
@@ -877,7 +877,7 @@ async function openStatement(id) {
     $("statementFileLabel").textContent = "Choose a Bank of Kigali PDF";
     $("statementFileMeta").textContent = "No file selected";
     processButton.disabled = true;
-    renderStatement(detail, `${detail.display_name || "Statement"}${detail.completed_at ? " (verified)" : ""}.`);
+    renderStatement(detail, `${detail.display_name || "Statement"}${detail.completed_at ? " (verified)" : ""}${detail.source === "email" ? ` · received by email ${formatDateTime(detail.received_at)}` : ""}.`);
     setNotice(`Opened ${detail.display_name || "statement"}.`, "success");
     loadHistory();
     $("statementResults").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -990,3 +990,67 @@ $("apiBaseLabel").textContent = API_BASE.replace(/^https?:\/\//, "");
 openRequestedStatement();
 loadAliases();
 $("refreshHistoryButton").addEventListener("click", loadHistory);
+
+// ---------- statements that arrived by email (collected by the Gmail downloader) ----------
+function sourceBadge(item) {
+  return item.source === "email"
+    ? '<span class="source-badge email" title="Arrived by email">✉ Email</span>'
+    : '<span class="source-badge upload" title="Uploaded by hand">⬆ Uploaded</span>';
+}
+
+async function loadEmailStatements() {
+  try {
+    const result = await fetchJson("/api/bank-statements/email");
+    $("emailPanel").classList.toggle("hidden", !result.enabled);
+    if (!result.enabled) return;
+    const items = result.items || [];
+    const badge = $("emailNewBadge");
+    badge.textContent = `${result.new_count || 0} new`;
+    badge.classList.toggle("hidden", !result.new_count);
+    $("emailBody").innerHTML = items.length
+      ? items.map((item) => `
+        <tr>
+          <td class="row-number"></td>
+          <td><span class="table-cell-strong">${escapeHtml(item.name || "Statement")}</span> ${sourceBadge({ source: "email" })}<span class="mini-note block-note">${escapeHtml(item.subject || "")}</span></td>
+          <td>${escapeHtml(periodText(item.period_start, item.period_end))}</td>
+          <td>${escapeHtml(formatDateTime(item.received_at))}</td>
+          <td>${item.status === "opened"
+            ? `<span class="status-chip sent" title="Already opened${item.statement_name ? ` as ${escapeHtml(item.statement_name)}` : ""}">Opened</span>`
+            : '<span class="status-chip pending" title="Not opened yet">New</span>'}</td>
+          <td class="history-actions"><button class="ghost-button small-button" type="button" data-open-email="${escapeHtml(item.id)}" data-statement="${escapeHtml(item.statement_id || "")}">${item.status === "opened" ? "Open again" : "Open"}</button></td>
+        </tr>`).join("")
+      : '<tr><td colspan="6" class="empty-table">Nothing has arrived by email yet.</td></tr>';
+  } catch (error) {
+    $("emailPanel").classList.add("hidden");
+  }
+}
+
+async function openEmailStatement(button) {
+  if (button.dataset.statement) return openStatement(button.dataset.statement);      // already read: just reopen it
+  button.disabled = true;
+  setNotice("Reading the emailed statement…");
+  try {
+    clearResults();
+    const payload = await fetchJson(`/api/bank-statements/email/${encodeURIComponent(button.dataset.openEmail)}/open`, { method: "POST" });
+    await loadBikers({ start: payload.period_start, end: payload.period_end });
+    renderStatement(payload, `${payload.display_name || "Statement"} · received by email ${formatDateTime(payload.received_at)}.`);
+    setNotice(payload.already_processed
+      ? `This statement was already saved as ${payload.display_name || "a statement"}; reopened where you left off.`
+      : `Statement saved as ${payload.display_name || "a new statement"} from email: ${rows.length} incoming transactions loaded.`, "success");
+    loadHistory();
+    loadEmailStatements();
+    $("statementResults").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    setNotice(error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.addEventListener("click", (event) => {
+  const open = event.target.closest("[data-open-email]");
+  if (open) openEmailStatement(open);
+});
+$("refreshEmailButton").addEventListener("click", loadEmailStatements);
+loadEmailStatements();
+setInterval(() => { if (!document.hidden) loadEmailStatements(); }, 60000);

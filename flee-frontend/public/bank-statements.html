@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fleebee Bank Statements</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1626'/%3E%3Cpath d='M19 5L9.5 14.5M19 5l-5.5 14-2-6.5L5 10.5z' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/assets/css/styles.css?v=33">
+  <link rel="stylesheet" href="/assets/css/styles.css?v=34">
 </head>
 <body data-view="bank-statements">
   <div class="app-shell">
@@ -78,6 +78,22 @@
           </form>
         </section>
 
+        <section id="emailPanel" class="panel email-panel hidden">
+          <div class="panel-head">
+            <div>
+              <h2>Arrived by email <span id="emailNewBadge" class="source-badge email hidden">0 new</span></h2>
+              <p class="mini-note">Statements the bank emailed to the Fleebee mailbox are collected here automatically. Open one to read it and start syncing; it is then also kept under Saved statements, marked as Email.</p>
+            </div>
+            <button id="refreshEmailButton" class="ghost-button" type="button">Refresh</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table history-table numbered">
+              <thead><tr><th class="row-number">#</th><th>Statement</th><th>Period</th><th>Arrived</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="emailBody"><tr><td colspan="6" class="empty-table">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
         <section class="panel history-panel">
           <div class="panel-head">
             <div>
@@ -88,7 +104,7 @@
           </div>
           <div class="table-wrap">
             <table class="data-table history-table numbered">
-              <thead><tr><th class="row-number">#</th><th>Statement</th><th>Period</th><th>Progress</th><th>Status</th><th>Uploaded</th><th>Actions</th></tr></thead>
+              <thead><tr><th class="row-number">#</th><th>Statement</th><th>Period</th><th>Progress</th><th>Status</th><th>Added</th><th>Actions</th></tr></thead>
               <tbody id="historyBody"><tr><td colspan="7" class="empty-table">Loading…</td></tr></tbody>
             </table>
           </div>
@@ -145,6 +161,6 @@
     </div>
   </div>
   <script src="/app-config.js"></script>
-  <script src="/assets/js/bank-statements.js?v=32"></script>
+  <script src="/assets/js/bank-statements.js?v=33"></script>
 </body>
 </html>
