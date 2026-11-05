@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Fleebee backup every night
+
+[Timer]
+# 03:30, well before the nightly 11:00 reboot. If the computer was off then, run it at the next start.
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

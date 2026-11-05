@@ -72,6 +72,7 @@ function makeConfig(base, overrides = {}) {
     label: "Fleebee/BankStatements",
     sender: SENDER,
     subjectPrefix: "BK INTERNET BANKING STATEMENT FROM",
+    retentionDays: 90,
     maxPdfBytes: 1024 * 1024,
     maxMessagesPerRun: 50,
     requireSenderAuth: true,

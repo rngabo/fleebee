@@ -23,6 +23,8 @@ function loadConfig(env = process.env) {
     label: env.GMAIL_LABEL || "Fleebee/BankStatements",
     sender: (env.GMAIL_SENDER || "bkebanking@bk.rw").trim().toLowerCase(),
     subjectPrefix: env.GMAIL_SUBJECT_PREFIX || "BK INTERNET BANKING STATEMENT FROM",
+    // PDFs older than this are deleted from the inbox folder (their records stay, so the same file is never saved twice). 0 = keep forever.
+    retentionDays: Number.isFinite(Number.parseInt(env.GMAIL_RETENTION_DAYS ?? "", 10)) && Number.parseInt(env.GMAIL_RETENTION_DAYS, 10) >= 0 ? Number.parseInt(env.GMAIL_RETENTION_DAYS, 10) : 90,
     maxPdfBytes: intFrom(env.GMAIL_MAX_PDF_BYTES, 15 * 1024 * 1024),
     maxMessagesPerRun: intFrom(env.GMAIL_MAX_MESSAGES_PER_RUN, 50),
     // Requires the mail to be authenticated (DKIM/SPF pass) for the sender's domain, so a forged From is not enough.

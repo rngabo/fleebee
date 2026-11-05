@@ -32,6 +32,26 @@ function savePdf(config, { buffer, receivedMs }) {
   return { file, hash };
 }
 
+// Deletes saved PDFs older than the retention period. Only files inside the download folder are ever touched, and the
+// record (hash, subject, dates) stays with a removedAt time so the same attachment is still recognised as a duplicate.
+function pruneOldPdfs(config, state, now = Date.now()) {
+  if (!config.retentionDays) return 0;
+  const cutoff = now - config.retentionDays * 86400000;
+  const root = path.resolve(config.downloadDir) + path.sep;
+  let removed = 0;
+  for (const entry of Object.values(state.hashes)) {
+    if (entry.removedAt || !entry.file || Date.parse(entry.savedAt) >= cutoff) continue;
+    const file = path.resolve(entry.file);
+    if (file.startsWith(root)) {
+      fs.rmSync(file, { force: true });
+      try { fs.rmdirSync(path.dirname(file)); } catch (error) { /* month folder still has other PDFs */ }
+    }
+    entry.removedAt = new Date(now).toISOString();
+    removed += 1;
+  }
+  return removed;
+}
+
 // One run at a time (the timer could fire while a slow run is still going).
 function acquireLock(config, now = Date.now()) {
   const lock = `${config.stateFile}.lock`;
@@ -60,4 +80,4 @@ function writeStatus(config, status) {
   }, null, 2)}\n`);
 }
 
-module.exports = { writeStatus, acquireLock, ensureStart, loadState, savePdf, saveState };
+module.exports = { pruneOldPdfs, writeStatus, acquireLock, ensureStart, loadState, savePdf, saveState };

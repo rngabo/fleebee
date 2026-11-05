@@ -75,7 +75,7 @@ OAuth consent screen is in "Testing" mode, where Google expires refresh tokens a
 ## Configuration (optional, no secrets)
 
 Set in `~/fleebee/shared/gmail-downloader.env`: `GMAIL_LABEL`, `GMAIL_SENDER`, `GMAIL_SUBJECT_PREFIX`,
-`GMAIL_DOWNLOAD_DIR`, `GMAIL_MAX_PDF_BYTES`, `GMAIL_MAX_MESSAGES_PER_RUN`,
+`GMAIL_DOWNLOAD_DIR`, `GMAIL_RETENTION_DAYS` (days to keep saved PDFs, default 90, `0` = keep forever; the record of a deleted PDF stays so the same file is never saved twice), `GMAIL_MAX_PDF_BYTES`, `GMAIL_MAX_MESSAGES_PER_RUN`,
 `GMAIL_REQUIRE_SENDER_AUTH` (`true` by default; `false` only if the bank's mail is rejected for `sender-not-authenticated`).
 
 ## Troubleshooting

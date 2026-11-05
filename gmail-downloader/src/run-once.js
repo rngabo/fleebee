@@ -2,7 +2,7 @@ const { createGmailClient } = require("./gmail-client");
 const { AuthError } = require("./oauth");
 const { loadConfig } = require("./config");
 const { checkMessage, checkPdf, displayFilename, pdfCandidates, subjectOf } = require("./validate");
-const { acquireLock, ensureStart, loadState, savePdf, saveState, writeStatus } = require("./store");
+const { acquireLock, ensureStart, loadState, pruneOldPdfs, savePdf, saveState, writeStatus } = require("./store");
 const { sha256 } = require("./files");
 
 const unixSeconds = (ms) => Math.floor(ms / 1000);
@@ -17,7 +17,9 @@ async function runPass(config, { gmail = createGmailClient(config), log = consol
     if (retryRejected) {
       for (const [id, entry] of Object.entries(state.messages)) if (entry.outcome === "rejected") delete state.messages[id];
     }
-    const summary = { saved: 0, duplicates: 0, rejected: 0, ignored: 0, errors: 0, labelFound: true };
+    const summary = { saved: 0, duplicates: 0, rejected: 0, ignored: 0, errors: 0, pruned: 0, labelFound: true };
+    summary.pruned = pruneOldPdfs(config, state, now());
+    if (summary.pruned) { log(`Removed ${summary.pruned} PDF(s) older than ${config.retentionDays} days.`); saveState(config, state); }
 
     const labelId = await gmail.findLabelId(config.label);
     if (!labelId) {
@@ -100,7 +102,8 @@ async function runOnce(config, options = {}) {
         since: state.since,
         summary: { saved: summary.saved, duplicates: summary.duplicates, rejected: summary.rejected, errors: summary.errors, labelFound: summary.labelFound },
         totals: {
-          pdfsSaved: Object.keys(state.hashes).length,
+          pdfsSaved: Object.values(state.hashes).filter((entry) => !entry.removedAt).length,
+          pdfsRemoved: Object.values(state.hashes).filter((entry) => entry.removedAt).length,
           emailsRejected: Object.values(state.messages).filter((entry) => entry.outcome === "rejected").length
         }
       });

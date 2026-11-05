@@ -205,3 +205,68 @@ lookup. The current displayed total from that run is `RWF 141,000`.
 Before the production schema update, the database was backed up to:
 
 - `/home/richard/fleebee/backups/fleebee-before-fine-monitor-20260919-131416.db`
+
+## Services on the home computer (added 2026-11-05)
+
+Everything runs as `systemd --user` units (lingering is enabled, so they start at boot without a login). There is no
+Docker, Postgres or `sudo` on this machine. The computer reboots itself every night at 11:00 (`/etc/cron.d/nightly-system-reboot`).
+
+| Unit | What it is | Where it listens / runs |
+|---|---|---|
+| `fleebee.service` | Fleebee app (Node 20, SQLite) | port 4100 |
+| `caddy-fleebee.service` | HTTPS proxy | 8080 / 8443 |
+| `bank-statement.service` | Bank statement service (Python venv, SQLite) | 127.0.0.1:8100, API key required |
+| `gmail-downloader.timer` | Fetches BK statement emails from Gmail (read-only) | every 5 min |
+| `fleebee-backup.timer` | Nightly backup | 03:30 |
+
+Install / update scripts (run from the development computer, all idempotent):
+
+```bash
+deploy/home-computer/sync-release.sh                      # app code
+deploy/home-computer/restart-service.sh                   # restart the app
+deploy/home-computer/install-bank-statement-service.sh    # bank service (venv, SQLite, unit, .env settings)
+deploy/home-computer/install-gmail-downloader.sh          # Gmail downloader (see gmail-downloader/README.md)
+deploy/home-computer/install-backups.sh                   # nightly backup
+deploy/home-computer/verify-health.sh                     # PASS/FAIL check of everything; run it after the 11:00 reboot
+```
+
+### Files (`~/fleebee/shared/`, all private)
+
+```text
+.env                              app settings (BANK_STATEMENT_SERVICE_*, BANK_EMAIL_*, PAYMENTS_SHEET_SERVICE_ACCOUNT_FILE, BACKUP_STATUS_FILE)
+bank-statement.env                bank service settings incl. its API key (generated on the machine)
+bank-statements.db                bank service database (SQLite; built from the models, migrations are Postgres-only)
+gmail/credentials.json, token.json, state.json, status.json     Gmail OAuth client, token, downloader records, heartbeat
+bank-statements/inbox/YYYY-MM/    PDFs fetched from Gmail (deleted after GMAIL_RETENTION_DAYS, default 90; records stay)
+google-data-sync-service-account.json   service account used to read AND write the sheet (Editor on the workbook)
+```
+
+### Backups
+
+`backup_home.py` writes `~/fleebee/backups/daily/<date>/` every night (consistent copies of `fleebee.db` and
+`bank-statements.db`, the downloader records, the inbox PDFs, and the `.env` files; the Gmail token is NOT included) and keeps
+14 days. `backup-status.json` feeds the "Backups" card in the Overview control center. Manual backups made before
+deployments (`~/fleebee/backups/*before*`) are never pruned.
+
+These copies live on the same disk: they protect against mistakes and corruption, not against losing the computer.
+Pull them to another machine regularly, for example:
+
+```bash
+rsync -a richard@192.168.1.50:fleebee/backups/daily/ ~/fleebee-home-backups/
+```
+
+Restore a database: stop the service, copy the file back from `daily/<date>/`, start the service
+(`systemctl --user stop bank-statement.service`, `cp .../bank-statements.db ~/fleebee/shared/`, `start`).
+Keep the folder private: the config archive contains secrets.
+
+### Moving statement history between computers
+
+`bank-statement-service/scripts/history_copy.py` exports statements, transactions and remembered payers from one bank database
+and imports them into another, translating rider ids by name (dry run by default; `--apply` to write; repeatable).
+It was used on 2026-11-05 to copy the local history to the home computer. The export file contains financial data: delete it
+afterwards.
+
+### After the nightly reboot
+
+Run `deploy/home-computer/verify-health.sh`. Units reported as "started by itself N s after boot" came back without help;
+"restarted by hand" means that boot does not prove them (for example after a deployment the same day).

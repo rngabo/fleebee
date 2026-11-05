@@ -10,3 +10,7 @@
 /gmail-downloader/credentials.json
 /gmail-downloader/state.json
 /.email-inbox/
+
+# Python caches
+__pycache__/
+*.pyc

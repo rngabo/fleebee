@@ -234,7 +234,7 @@ test("every pass writes a heartbeat the control center can read, without secrets
   assert.equal(status.outcome, "ok");
   assert.equal(status.auth, "ok");
   assert.deepEqual(status.summary, { saved: 1, duplicates: 0, rejected: 0, errors: 0, labelFound: true });
-  assert.deepEqual(status.totals, { pdfsSaved: 1, emailsRejected: 0 });
+  assert.deepEqual(status.totals, { pdfsSaved: 1, pdfsRemoved: 0, emailsRejected: 0 });
   assert.equal(status.scope, config.scope);
   assert.ok(Date.parse(status.checkedAt) > 0);
   assert.equal(Object.keys(status).includes("refresh_token"), false);
@@ -250,5 +250,51 @@ test("a failed authorization is recorded in the heartbeat, then the error is sti
   assert.equal(status.outcome, "error");
   assert.equal(status.auth, "needs-authorization");
   assert.match(status.message, /npm run authorize/);
+  await mock.close();
+});
+
+test("PDFs older than the retention period are deleted, their records stay, recent ones are kept", async () => {
+  const oldPdf = makePdf("old-one"), newPdf = makePdf("new-one");
+  const { mock, config, run } = await prepare([
+    email({ id: "m1", internalDate: AFTER, attachments: [{ filename: "a.pdf", data: oldPdf }] }),
+    email({ id: "m2", internalDate: AFTER + 1000, attachments: [{ filename: "b.pdf", data: newPdf }] })
+  ]);
+  await run();
+  assert.equal(listFiles(config.downloadDir).length, 2);
+  const state = JSON.parse(fs.readFileSync(config.stateFile, "utf8"));
+  const [oldHash] = Object.entries(state.hashes).find(([, entry]) => entry.messageId === "m1");
+  state.hashes[oldHash].savedAt = new Date(AFTER - 100 * 86400000).toISOString();          // saved 100 days before "now"
+  fs.writeFileSync(config.stateFile, JSON.stringify(state));
+  const summary = await run();
+  assert.equal(summary.pruned, 1);
+  assert.equal(listFiles(config.downloadDir).length, 1);
+  const after = JSON.parse(fs.readFileSync(config.stateFile, "utf8"));
+  assert.ok(after.hashes[oldHash].removedAt);
+  assert.equal(after.hashes[oldHash].subject.startsWith("BK INTERNET"), true);               // the record stays
+  const status = JSON.parse(fs.readFileSync(config.statusFile, "utf8"));
+  assert.deepEqual(status.totals, { pdfsSaved: 1, pdfsRemoved: 1, emailsRejected: 0 });
+  assert.equal((await run()).pruned, 0);                                                      // nothing more to remove
+  await mock.close();
+});
+
+test("a retention of 0 keeps everything, and files outside the download folder are never deleted", async () => {
+  const { mock, config, dir, run } = await prepare([email({ id: "m1", internalDate: AFTER, attachments: [{ filename: "a.pdf", data: makePdf("keep") }] })]);
+  await run();
+  const state = JSON.parse(fs.readFileSync(config.stateFile, "utf8"));
+  const [hash, entry] = Object.entries(state.hashes)[0];
+  entry.savedAt = new Date(AFTER - 500 * 86400000).toISOString();
+  fs.writeFileSync(config.stateFile, JSON.stringify(state));
+  config.retentionDays = 0;
+  assert.equal((await run()).pruned, 0);
+  assert.equal(listFiles(config.downloadDir).length, 1);
+
+  const outside = path.join(dir, "precious.pdf");
+  fs.writeFileSync(outside, "do not delete");
+  const tampered = JSON.parse(fs.readFileSync(config.stateFile, "utf8"));
+  tampered.hashes[hash].file = outside;                                                        // a record pointing outside the folder
+  fs.writeFileSync(config.stateFile, JSON.stringify(tampered));
+  config.retentionDays = 90;
+  assert.equal((await run()).pruned, 1);
+  assert.equal(fs.existsSync(outside), true);
   await mock.close();
 });

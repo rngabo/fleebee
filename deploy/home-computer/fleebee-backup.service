@@ -1,0 +1,9 @@
+[Unit]
+Description=Fleebee daily backup (databases, statement PDFs, configuration)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/fleebee/current/deploy/home-computer/backup_home.py
+UMask=0077
+NoNewPrivileges=true
+TimeoutStartSec=600
