@@ -134,6 +134,17 @@ function assignDeposits({ sheetRows, entries }) {
         assignments.set(deposit.ref, { row, kind: "app" });
       }
     }
+    // B2) a row the app wrote for the same deposit on ANOTHER computer. Its reference code differs (codes come from each
+    // database's own ids), so it is recognised by rider, amount and the exact real bank date (never a nearby date: a
+    // different date is a different payment).
+    for (const deposit of deposits) {
+      if (assignments.has(deposit.ref)) continue;
+      const row = app.find((candidate) => !candidate.claimed && candidate.amount === deposit.amount && effectiveDate(candidate) === deposit.date);
+      if (row) {
+        row.claimed = true;
+        assignments.set(deposit.ref, { row, kind: "app" });
+      }
+    }
     // C) an app row whose deposit already has a hand-typed row is the extra copy
     for (const deposit of deposits) {
       const found = assignments.get(deposit.ref);

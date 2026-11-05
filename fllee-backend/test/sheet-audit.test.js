@@ -161,3 +161,32 @@ test("a deposit on a new date is a new payment, even if older rows of the same a
   assert.equal(findRecordedDeposit({ sheetRows, entries, ref: "n0000004" }), null);
   assert.equal(findRecordedDeposit({ sheetRows, entries, ref: "n0000005" }), null);
 });
+
+// ---------- The same deposit synced from two different computers ----------
+
+test("a row the app wrote on another computer (different reference) counts as the same deposit: same rider, amount and exact date", () => {
+  const sheetRows = [sheet(300, "2026-11-04", "Sindikubwayo Jean Claude", 10000, "Synced from app · ref aaaa1111")];     // written by the other computer
+  const entries = [bank("2026-11-04", 10000, "Sindikubwayo Jean Claude", { ref: "bbbb2222" })];                               // this computer's id for the same deposit
+  const found = findRecordedDeposit({ sheetRows, entries, ref: "bbbb2222" });
+  assert.equal(found.kind, "app");
+  assert.equal(found.row.row, 300);
+});
+
+test("a different date is a different payment even when the amount and rider are the same", () => {
+  const sheetRows = [sheet(300, "2026-11-04", "Sindikubwayo Jean Claude", 10000, "Synced from app · ref aaaa1111")];
+  const entries = [bank("2026-11-05", 10000, "Sindikubwayo Jean Claude", { ref: "bbbb2222" })];
+  assert.equal(findRecordedDeposit({ sheetRows, entries, ref: "bbbb2222" }), null);
+});
+
+test("two identical same-day deposits with one row from the other computer: one is recorded, one is still missing", () => {
+  const sheetRows = [sheet(300, "2026-11-04", "Sindikubwayo Jean Claude", 10000, "Synced from app · ref aaaa1111")];
+  const entries = [bank("2026-11-04", 10000, "Sindikubwayo Jean Claude", { ref: "bbbb0001" }), bank("2026-11-04", 10000, "Sindikubwayo Jean Claude", { ref: "bbbb0002" })];
+  const recorded = ["bbbb0001", "bbbb0002"].map((ref) => Boolean(findRecordedDeposit({ sheetRows, entries, ref })));
+  assert.deepEqual(recorded.sort(), [false, true]);
+});
+
+test("a back-dated row from the other computer is matched through the real date in its note", () => {
+  const sheetRows = [sheet(301, "2026-10-31", "Nyandwi Fabien", 36000, "Synced from app · paid 2026-11-02 · ref aaaa3333")];
+  const entries = [bank("2026-11-02", 36000, "Nyandwi Fabien", { ref: "bbbb4444" })];
+  assert.equal(findRecordedDeposit({ sheetRows, entries, ref: "bbbb4444" })?.row.row, 301);
+});
