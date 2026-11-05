@@ -4,6 +4,9 @@ const DAY_MS = 86400000;
 // or two before the statement shows the money. These windows say how far apart the two dates may be.
 const MAX_BACKDATED_DAYS = 62;
 const MAX_EARLY_DAYS = 5;
+// A new date in the statement is a new payment: only a row this close to the bank date counts as the same payment,
+// (rows the app back-dated carry the real bank date in their note, see effectiveDate).
+const NEAR_DAYS = 3;
 // A row dated in the last days of the statement may belong to a deposit that falls after it ends: not judged yet.
 const RECENT_DAYS = 7;
 
@@ -37,8 +40,8 @@ function effectiveDate(row) {
 // How well a sheet date fits a bank date: null when it does not fit at all, otherwise the distance in days.
 function dateFit(sheetIso, bankIso) {
   const gap = dayNumber(bankIso) - dayNumber(sheetIso);          // >0 when the sheet row is dated earlier
-  if (gap < -MAX_EARLY_DAYS || gap > MAX_BACKDATED_DAYS) return null;
-  return Math.abs(gap);
+  if (gap < -MAX_EARLY_DAYS) return null;
+  return gap <= NEAR_DAYS ? Math.abs(gap) : null;
 }
 
 function bestMatch(deposit, rows, predicate) {
@@ -85,6 +88,8 @@ function assignDeposits({ sheetRows, entries }) {
     rowsByRider.get(key).push(row);
   }
   const depositsByRider = new Map();
+  const untied = entries.filter((entry) => !entry.rider);
+  const takenUntied = new Set();
   for (const entry of entries) {
     if (!entry.rider) continue;
     const key = nameKey(entry.rider);
@@ -99,13 +104,26 @@ function assignDeposits({ sheetRows, entries }) {
     const manual = rows.filter((row) => !isAppRow(row));
     const app = rows.filter(isAppRow);
 
-    // A) a hand-typed row of the same amount, closest date (back-dating allowed), one row per deposit
-    for (const deposit of deposits) {
-      const row = bestMatch(deposit, manual, (candidate) => candidate.amount === deposit.amount);
-      if (row) {
-        row.claimed = true;
-        assignments.set(deposit.ref, { row, kind: "manual" });
+    // A) a hand-typed row of the same amount, closest date first (back-dating allowed), one row per deposit.
+    // Deposits not tied to a rider yet compete for rows too, so a row dated 31 Oct goes to the 31 Oct deposit,
+    // not to a later deposit of the same amount that merely falls inside the back-dating window.
+    const pool = [...deposits, ...(untied || []).filter((deposit) => !takenUntied.has(deposit.ref))];
+    const pairs = [];
+    for (const deposit of pool) {
+      for (const row of manual) {
+        if (row.amount !== deposit.amount) continue;
+        const fit = dateFit(effectiveDate(row), deposit.date);
+        if (fit !== null) pairs.push({ deposit, row, fit });
       }
+    }
+    pairs.sort((a, b) => a.fit - b.fit || a.deposit.date.localeCompare(b.deposit.date) || a.row.row - b.row.row);
+    const taken = new Set();
+    for (const { deposit, row } of pairs) {
+      if (row.claimed || taken.has(deposit.ref)) continue;
+      row.claimed = true;
+      taken.add(deposit.ref);
+      if (deposit.rider) assignments.set(deposit.ref, { row, kind: "manual" });
+      else takenUntied.add(deposit.ref);
     }
     // B) otherwise the row the app wrote for this very deposit
     for (const deposit of deposits) {

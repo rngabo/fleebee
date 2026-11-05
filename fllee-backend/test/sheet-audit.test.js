@@ -145,3 +145,19 @@ test("an app row is NOT a duplicate when it records a payment that only exists o
   );
   assert.deepEqual(result.findings, []);          // two deposits, two rows
 });
+
+test("a later deposit is not matched to a row that an untied deposit of the same day explains", () => {
+  const sheetRows = [sheet(30, "2026-10-31", "Sindikubwayo Jean Claude", 10000)];
+  const entries = [
+    bank("2026-10-31", 10000, "", { ref: "untied01", depositor: "Olivier Ishimwe" }),
+    bank("2026-11-05", 10000, "Sindikubwayo Jean Claude", { ref: "late0005" })
+  ];
+  assert.equal(findRecordedDeposit({ sheetRows, entries, ref: "late0005" }), null);
+});
+
+test("a deposit on a new date is a new payment, even if older rows of the same amount exist", () => {
+  const sheetRows = [sheet(1, "2026-10-30", "Sindikubwayo Jean Claude", 10000), sheet(2, "2026-10-31", "Sindikubwayo Jean Claude", 10000)];
+  const entries = [bank("2026-11-04", 10000, "Sindikubwayo Jean Claude", { ref: "n0000004" }), bank("2026-11-05", 10000, "Sindikubwayo Jean Claude", { ref: "n0000005" })];
+  assert.equal(findRecordedDeposit({ sheetRows, entries, ref: "n0000004" }), null);
+  assert.equal(findRecordedDeposit({ sheetRows, entries, ref: "n0000005" }), null);
+});
