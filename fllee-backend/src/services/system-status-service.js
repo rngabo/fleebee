@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { env } = require("../config/env");
 const { prisma } = require("../lib/prisma");
@@ -36,7 +37,7 @@ async function appCard() {
   await prisma.$queryRaw`SELECT 1`;
   return {
     id: "app", title: "Fleebee app", state: "ok", headline: "Running",
-    details: [row("Uptime", human(Date.now() - STARTED_AT)), row("Database", `reachable (${Date.now() - started} ms)`), row("Node", process.version), row("Address", env.PUBLIC_APP_URL)]
+    details: [row("App running for", human(Date.now() - STARTED_AT)), row("Computer up for", human(os.uptime() * 1000)), row("Database", `reachable (${Date.now() - started} ms)`), row("Node", process.version), row("Address", env.PUBLIC_APP_URL)]
   };
 }
 
@@ -82,6 +83,29 @@ async function gmailCard() {
       ...(status.message && status.outcome !== "ok" ? [row("Problem", status.message)] : [])
     ],
     link: { href: "/bank-statements.html", label: "Open statements" }
+  };
+}
+
+async function backupCard() {
+  if (!env.BACKUP_STATUS_FILE) {
+    return { id: "backup", title: "Backups", state: "off", headline: "Not set up on this server", details: [row("Setting", "BACKUP_STATUS_FILE")] };
+  }
+  const status = readJson(env.BACKUP_STATUS_FILE);
+  if (!status) return { id: "backup", title: "Backups", state: "warn", headline: "No backup recorded yet", details: [row("Schedule", "every night at 03:30")] };
+  const ageMs = Date.now() - Date.parse(status.finishedAt);
+  const state = !status.ok || ageMs > 36 * 3600000 ? (ageMs > 72 * 3600000 || !status.ok ? "down" : "warn") : "ok";
+  const mb = (status.bytes / 1048576).toFixed(1);
+  return {
+    id: "backup", title: "Backups", state,
+    headline: !status.ok ? "Last backup had problems" : ageMs > 36 * 3600000 ? "Backup is overdue" : "Up to date",
+    details: [
+      row("Last backup", `${human(ageMs)} ago`),
+      row("Size", `${mb} MB`),
+      row("Copies kept", `${status.copiesKept} (${status.keepDays} days)`),
+      row("Contains", (status.parts || []).join(", ")),
+      row("Next backup", "every night at 03:30"),
+      ...(status.problems?.length ? [row("Problem", status.problems.join("; ").slice(0, 200))] : [])
+    ]
   };
 }
 
@@ -160,6 +184,7 @@ function timers(cards) {
     { name: "Google Sheet import", does: "Reads riders and payments from the sheet", every: detail("sheet-import", "Repeats every"), last: detail("sheet-import", "Last import"), next: detail("sheet-import", "Next import"), state: byId["sheet-import"]?.state },
     { name: "Fine monitor", does: "Checks plates for new fines", every: detail("fines", "Repeats"), last: detail("fines", "Last check"), next: detail("fines", "Next check"), state: byId.fines?.state },
     { name: "Scheduled SMS", does: "Sends recurring messages when due", every: detail("sms-scheduler", "Checks every"), last: "—", next: detail("sms-scheduler", "Next send"), state: byId["sms-scheduler"]?.state },
+    { name: "Backups", does: "Copies databases, PDFs and settings", every: "every night at 03:30", last: detail("backup", "Last backup"), next: detail("backup", "Next backup"), state: byId.backup?.state },
     { name: "Phone heartbeat", does: "The phone reports it is alive", every: `every ~${human(env.PHONE_HEARTBEAT_STALE_MS)} or less`, last: detail("phone", "Last heartbeat"), next: "—", state: byId.phone?.state }
   ].filter((item) => item.state);
 }
@@ -167,7 +192,7 @@ function timers(cards) {
 async function buildSystemOverview() {
   const collectors = [
     ["app", "Fleebee app", appCard], ["bank", "Bank statement service", bankCard], ["gmail", "Gmail statement downloader", gmailCard],
-    ["sheet-import", "Google Sheet import", sheetImportCard], ["sheet-write", "Google Sheet writing", sheetWriteCard],
+    ["sheet-import", "Google Sheet import", sheetImportCard], ["sheet-write", "Google Sheet writing", sheetWriteCard], ["backup", "Backups", backupCard],
     ["fines", "Fine monitor", fineCard], ["phone", "SMS phone gateway", phoneCard], ["sms-scheduler", "Scheduled SMS", smsSchedulerCard]
   ];
   const cards = await Promise.all(collectors.map(([id, title, collect]) => collect().catch((error) => ({
@@ -177,4 +202,4 @@ async function buildSystemOverview() {
   return { generatedAt: new Date().toISOString(), summary: { ok: count("ok"), warn: count("warn"), down: count("down"), off: count("off") }, services: cards, timers: timers(cards) };
 }
 
-module.exports = { buildSystemOverview, gmailCard, DEPENDENCIES };
+module.exports = { buildSystemOverview, gmailCard, backupCard, DEPENDENCIES };

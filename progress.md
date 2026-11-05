@@ -2841,3 +2841,12 @@ The big recent wins were bundle automation, persistent ADB recovery on `.50`, ni
 - Overview page: Control center section on top (auto-refresh 30 s), Recent SMS collapsed behind a "Show recent SMS" button.
 - Validated: downloader 17 tests, backend 67 tests (5 new for the Gmail card), headless Chrome render of healthy and failing states. Overview later reorganized (Server Health / Phone Gateway / Bundle Check as a card row under the control center, full page width).
 - Deployed to the home computer 2026-11-05 17:10 (backups `~/fleebee/backups/*before-control-center-20261105-170926*`): downloader with heartbeat, app synced and restarted; home control center shows Gmail checking, bank service OK; sheet writing not configured and the phone gateway reads Offline there.
+
+## 2026-11-05 - Backups, retention, history copy, reboot check, docs (home computer)
+
+- Nightly backup (`deploy/home-computer/backup_home.py`, systemd timer 03:30, 14 days kept, status file) installed and run once; Backups card in the control center; computer uptime shown on the app card. Backups are on the same disk: pull them off-machine (see DEPLOYMENT.md).
+- PDF retention: downloader deletes saved PDFs after `GMAIL_RETENTION_DAYS` (default 90); records stay; the email panel ignores removed ones. The bank service already expires its own stored PDFs after 30 days.
+- History copy: `bank-statement-service/scripts/history_copy.py` (export/import, rider ids translated by name, dry run default). Applied to home: 7 statements, 197 transactions, 492 links, 7 remembered payers; second run adds nothing; history files deleted afterwards.
+- Reboot: home already reboots nightly at 11:00; `deploy/home-computer/verify-health.sh` checks that every unit came back by itself. Run after the next reboot (units restarted by hand today are not yet proven; the proxy was).
+- DEPLOYMENT.md now documents the home services, files, backups, restore and the history tool.
+- Validated: downloader 19 tests, backend 69, bank service history-copy tests 3, backup tests 3; home: backup ran, control center shows all cards, verify-health passes.

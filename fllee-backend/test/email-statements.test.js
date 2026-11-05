@@ -20,6 +20,7 @@ function setup({ bankStatements = [] } = {}) {
   fs.writeFileSync(stateFile, JSON.stringify({ hashes: {
     [HASH_NEW]: { file: `/home/richard/fleebee/shared/bank-statements/inbox/2026-11/${files.new}`, bytes: 34460, subject: "BK INTERNET BANKING STATEMENT FROM 2026-11-05 TO 2026-11-05", receivedAt: "2026-11-05T14:10:26.000Z", originalName: "Statement_24025.pdf" },
     [HASH_OPENED]: { file: `/x/2026-11/${files.opened}`, bytes: 100, subject: "BK INTERNET BANKING STATEMENT FROM 04/11/2026 TO 04/11/2026", receivedAt: "2026-11-04T10:00:00.000Z", originalName: "Statement_old.pdf" },
+    ["e".repeat(64)]: { file: `/x/2026-10/bk-statement_2026-10-01_eeeeeeeeeeee.pdf`, subject: "expired", receivedAt: "2026-10-01T00:00:00.000Z", removedAt: "2026-11-05T00:00:00.000Z" },
     [HASH_EVIL]: { file: "/x/../../etc/passwd", subject: "x", receivedAt: "2026-11-06T00:00:00.000Z" }
   } }));
   Object.assign(env, { BANK_EMAIL_STATE_FILE: stateFile, BANK_EMAIL_INBOX_DIR: dir, BANK_STATEMENT_SERVICE_URL: "http://bank.test", BANK_STATEMENT_SERVICE_API_KEY: "k".repeat(20) });

@@ -61,3 +61,31 @@ test("every function the control center calls exists in the module it is importe
   const { DEPENDENCIES } = require("../src/services/system-status-service");
   for (const [name, fn] of Object.entries(DEPENDENCIES)) assert.equal(typeof fn, "function", `${name} is not exported`);
 });
+
+function withBackup(status) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "backup-status-"));
+  env.BACKUP_STATUS_FILE = path.join(dir, "backup-status.json");
+  if (status) fs.writeFileSync(env.BACKUP_STATUS_FILE, JSON.stringify(status));
+}
+const backupDone = (hoursAgo, extra = {}) => ({ finishedAt: new Date(Date.now() - hoursAgo * 3600000).toISOString(), ok: true, bytes: 3145728, copiesKept: 6, keepDays: 14, parts: ["fleebee.db", "bank-statements.db"], problems: [], ...extra });
+
+test("a recent good backup is OK; an old one warns, then goes down; a failed one is down; unset is off", async () => {
+  const { backupCard } = require("../src/services/system-status-service");
+  withBackup(backupDone(5));
+  const ok = await backupCard();
+  assert.equal(ok.state, "ok");
+  assert.equal(value(ok, "Copies kept"), "6 (14 days)");
+  assert.equal(value(ok, "Size"), "3.0 MB");
+  withBackup(backupDone(40));
+  assert.equal((await backupCard()).state, "warn");
+  withBackup(backupDone(80));
+  assert.equal((await backupCard()).state, "down");
+  withBackup(backupDone(2, { ok: false, problems: ["bank-statements.db: not found"] }));
+  const failed = await backupCard();
+  assert.equal(failed.state, "down");
+  assert.match(value(failed, "Problem"), /not found/);
+  withBackup(null);
+  assert.equal((await backupCard()).state, "warn");
+  env.BACKUP_STATUS_FILE = "";
+  assert.equal((await backupCard()).state, "off");
+});

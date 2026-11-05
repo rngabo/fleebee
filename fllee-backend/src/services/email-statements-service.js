@@ -47,7 +47,7 @@ async function listEmailStatements() {
   const state = readState();
   const opened = await openedStatements();
   const items = Object.entries(state?.hashes || {})
-    .filter(([hash, entry]) => HASH.test(hash) && pdfPath(entry))
+    .filter(([hash, entry]) => HASH.test(hash) && !entry.removedAt && pdfPath(entry))
     .map(([hash, entry]) => {
       const statement = opened?.get(hash);
       return {

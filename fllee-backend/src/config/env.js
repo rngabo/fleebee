@@ -118,6 +118,8 @@ const env = {
   // Statements fetched from Gmail by gmail-downloader: its state file (lists them) and the folder holding the PDFs.
   BANK_EMAIL_STATE_FILE: stringFromEnv("BANK_EMAIL_STATE_FILE", ""),
   BANK_EMAIL_INBOX_DIR: stringFromEnv("BANK_EMAIL_INBOX_DIR", ""),
+  // Written by the nightly backup (deploy/home-computer/backup_home.py); the control center shows it. Empty = no card.
+  BACKUP_STATUS_FILE: stringFromEnv("BACKUP_STATUS_FILE", ""),
   PAYMENTS_SHEET_ID: stringFromEnv(
     "PAYMENTS_SHEET_ID",
     "1yK5CDKJL6xIXmnKTYmM8YP-XfKt2SGbq0an3LlAX1xE"
