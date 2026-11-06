@@ -114,7 +114,6 @@
       </nav>
 
       <div class="sidebar-foot">
-        <div class="side-fact"><span>SMS route</span><strong>Unchanged</strong></div>
         <div class="side-fact"><span>API endpoint</span><strong id="apiBaseLabel">Loading...</strong></div>
       </div>
     </aside>
@@ -171,11 +170,10 @@
           <div class="panel-head">
             <div>
               <h2>All payments</h2>
-              <p class="mini-note">Newest first. Show the table to browse or filter every payment.</p>
+              <p class="mini-note">Newest first. Browse or filter every payment.</p>
             </div>
-            <button id="togglePaymentsButton" class="primary-button" type="button" aria-expanded="false" aria-controls="paymentsTableSection">Show table</button>
           </div>
-          <div id="paymentsTableSection" class="hidden">
+          <div id="paymentsTableSection">
             <div class="payments-filter-row"><label class="data-search-label">Filter <input id="paymentFilter" type="search" placeholder="Name, plate, method…"></label></div>
             <div class="table-wrap">
               <table class="data-table data-payments-table numbered">
@@ -184,6 +182,23 @@
                 <tfoot><tr><td colspan="4">TOTAL</td><td id="paymentTableTotal">RWF 0</td><td colspan="4"></td></tr></tfoot>
               </table>
             </div>
+            <div class="pagination-bar">
+              <label class="page-size">
+                Rows
+                <select id="paymentPageSizeSelect">
+                  <option value="10" selected>10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </label>
+              <span id="paymentRangeLabel" class="mini-note"></span>
+              <div class="page-controls">
+                <button id="paymentPrevButton" class="ghost-button" type="button">Previous</button>
+                <span id="paymentPageLabel" class="mini-note">Page 1 of 1</span>
+                <button id="paymentNextButton" class="ghost-button" type="button">Next</button>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -191,6 +206,6 @@
   </div>
 
   <script src="/app-config.js"></script>
-  <script src="/assets/js/data-pages.js?v=12"></script>
+  <script src="/assets/js/data-pages.js?v=14"></script>
 </body>
 </html>

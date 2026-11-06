@@ -10,6 +10,8 @@ const refreshLoader = $("refreshLoader");
 const syncBadge = $("syncBadge");
 const updatedLabel = $("updatedLabel");
 const paymentFilter = $("paymentFilter");
+let paymentPage = 0;
+let paymentPageSize = 10;
 
 let latestPayload = null;
 let checkInProgress = false;
@@ -257,8 +259,19 @@ function renderPayments(payload) {
   $("latestPaymentDate").textContent = items.length ? formatDay(items[0].paymentDate) : "—";
   $("paymentTableTotal").textContent = formatRwf(total);
   renderPaymentInsights(items);
-  $("dataPaymentsBody").innerHTML = visible.length
-    ? visible.map((item) => `
+  const pageCount = Math.max(1, Math.ceil(visible.length / paymentPageSize));
+  paymentPage = Math.min(Math.max(0, paymentPage), pageCount - 1);
+  const start = paymentPage * paymentPageSize;
+  const pageItems = visible.slice(start, start + paymentPageSize);
+  $("dataPaymentsBody").style.counterReset = `rown ${start}`;
+  $("paymentPageLabel").textContent = `Page ${paymentPage + 1} of ${pageCount}`;
+  $("paymentRangeLabel").textContent = visible.length
+    ? `${(start + 1).toLocaleString("en-US")}–${(start + pageItems.length).toLocaleString("en-US")} of ${visible.length.toLocaleString("en-US")}`
+    : "0 payments";
+  $("paymentPrevButton").disabled = paymentPage === 0;
+  $("paymentNextButton").disabled = paymentPage >= pageCount - 1;
+  $("dataPaymentsBody").innerHTML = pageItems.length
+    ? pageItems.map((item) => `
       <tr>
         <td class="row-number"></td>
         <td>${escapeHtml(formatDate(item.paymentDate))}</td>
@@ -432,24 +445,30 @@ if ($("dataPaymentsBody")) {
   });
 }
 
-function setPaymentsTableVisible(show) {
-  $("paymentsTableSection").classList.toggle("hidden", !show);
-  $("togglePaymentsButton").textContent = show ? "Hide table" : "Show table";
-  $("togglePaymentsButton").setAttribute("aria-expanded", String(show));
+// "View in Payments" links from the bank statements page: /data-payments.html?filter=Name
+if (paymentFilter) {
+  const filterParam = new URLSearchParams(window.location.search).get("filter");
+  if (filterParam) paymentFilter.value = filterParam;
 }
-
-if ($("togglePaymentsButton")) {
-  $("togglePaymentsButton").addEventListener("click", () => {
-    setPaymentsTableVisible($("paymentsTableSection").classList.contains("hidden"));
+if (paymentFilter) paymentFilter.addEventListener("input", () => {
+  paymentPage = 0;
+  renderPayments(latestPayload || { items: [] });
+});
+if ($("paymentPageSizeSelect")) {
+  $("paymentPageSizeSelect").addEventListener("change", (event) => {
+    paymentPageSize = Number(event.target.value) || 10;
+    paymentPage = 0;
+    renderPayments(latestPayload || { items: [] });
   });
-  // "View in Payments" links from the bank statements page: /data-payments.html?show=1&filter=Name
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("show") === "1") {
-    setPaymentsTableVisible(true);
-    if (params.get("filter")) paymentFilter.value = params.get("filter");
-  }
+  $("paymentPrevButton").addEventListener("click", () => {
+    paymentPage -= 1;
+    renderPayments(latestPayload || { items: [] });
+  });
+  $("paymentNextButton").addEventListener("click", () => {
+    paymentPage += 1;
+    renderPayments(latestPayload || { items: [] });
+  });
 }
-if (paymentFilter) paymentFilter.addEventListener("input", () => renderPayments(latestPayload || { items: [] }));
 
 load()
   .then((payload) => {
