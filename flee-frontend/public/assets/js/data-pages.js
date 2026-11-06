@@ -291,6 +291,7 @@ function render(payload) {
   renderSyncState(payload);
   if (view === "data-dashboard") renderDashboard(payload);
   if (view === "data-payments") renderPayments(payload);
+  if (view === "data-analysis" && window.renderAnalysis) window.renderAnalysis(payload);
 }
 
 async function load({ quiet = false } = {}) {
@@ -301,7 +302,7 @@ async function load({ quiet = false } = {}) {
     const query = view === "data-dashboard" && selection.month
       ? `?month=${encodeURIComponent(selection.month)}${selection.date ? `&date=${encodeURIComponent(selection.date)}` : ""}`
       : "";
-    const endpoint = view === "data-payments" ? "/api/data/payments" : `/api/data/dashboard${query}`;
+    const endpoint = view === "data-payments" ? "/api/data/payments" : view === "data-analysis" ? "/api/data/analysis" : `/api/data/dashboard${query}`;
     const payload = await fetchJson(endpoint);
     render(payload);
     if (!quiet) {

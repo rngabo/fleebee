@@ -2899,3 +2899,18 @@ body[data-view="overview"] .content {
 
 /* Overview: server, phone and bundle panels sit in one row of cards right under the control center */
 .system-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 18px; align-items: stretch; }
+
+/* Analysis page */
+.analysis-picker select { min-width: 280px; max-width: 100%; padding: 8px 10px; border: 1px solid var(--line, #d1d5db); border-radius: 8px; font: inherit; }
+.analysis-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.analysis-charts .panel, #analysisBody > .panel { margin-bottom: 16px; }
+.chart-host { width: 100%; }
+.chart-host svg { display: block; }
+.chart-tip { position: fixed; z-index: 50; pointer-events: none; background: #fff; color: #1f2937; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+.key { display: inline-block; width: 18px; height: 0; vertical-align: middle; margin-right: 4px; border-top: 3px solid #1d55c4; }
+.key-due { border-top: 3px dashed #6b7280; }
+@media (max-width: 1100px) { .analysis-charts { grid-template-columns: 1fr; } }
+.analysis-charts.hidden { display: none; }
+.analysis-tiles { margin-bottom: 16px; }
+.analysis-picker { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.badge-muted { background: #e5e7eb; color: #4b5563; }

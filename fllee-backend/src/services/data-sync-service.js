@@ -676,6 +676,35 @@ async function getDataPayments() {
   };
 }
 
+// Every member with the contract terms and each payment, for the Analysis page (one chart per member).
+async function getDataAnalysis() {
+  const [latestRun, schedule, members] = await Promise.all([
+    latestDataSyncRun(),
+    getDataSyncSchedule(),
+    prisma.dataMember.findMany({
+      where: { isPresent: true },
+      include: { payments: { where: { isPresent: true }, orderBy: { paymentDate: "asc" } } },
+      orderBy: { sourceName: "asc" }
+    })
+  ]);
+  return {
+    latestRun: serializeRun(latestRun),
+    schedule,
+    members: members.map((member) => ({
+      id: member.id,
+      name: member.sourceName,
+      plate: member.sourcePlate,
+      batch: member.batchCode,
+      status: member.sourceStatus,
+      startDate: member.startDate ? member.startDate.toISOString() : null,
+      monthlyDueRwf: member.monthlyDueRwf,
+      weeklyDueRwf: member.weeklyDueRwf,
+      durationMonths: member.durationMonths,
+      payments: member.payments.map((payment) => ({ date: payment.paymentDate.toISOString().slice(0, 10), amountRwf: payment.amountRwf }))
+    }))
+  };
+}
+
 // A payment this app just wrote to the Google Sheet is recorded locally straight away (same key the
 // next sheet import computes), so it shows on the Payments page, with its Delete button, without waiting.
 async function recordSyncedPayment({ name, paymentDate, amountRwf, paymentMethod, sheetRow, note = SYNC_NOTE }) {
@@ -764,6 +793,7 @@ module.exports = {
   deleteDataPayment,
   failDataSyncRun,
   getDataDashboard,
+  getDataAnalysis,
   getDataPayments,
   getLatestSerializedRun,
   getDataSyncIntervalDays,

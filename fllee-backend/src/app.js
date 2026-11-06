@@ -26,6 +26,7 @@ const {
   deleteDataPayment,
   failDataSyncRun,
   getDataDashboard,
+  getDataAnalysis,
   getDataPayments,
   getLatestSerializedRun,
   saveDataSyncIntervalDays
@@ -607,6 +608,11 @@ function createAppServer() {
           latestRun: await getLatestSerializedRun(),
           runner: getDataSyncRunnerState()
         });
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/data/analysis") {
+        sendJson(res, 200, { ...await getDataAnalysis(), runner: getDataSyncRunnerState() });
         return;
       }
 
